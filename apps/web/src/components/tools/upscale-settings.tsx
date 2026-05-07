@@ -10,8 +10,18 @@ const MODEL_OPTIONS = [
   { value: "auto", label: "Balanced" },
   { value: "realesrgan", label: "Best" },
 ] as const;
-const OUTPUT_FORMATS = ["png", "jpg", "webp", "avif", "tiff", "gif", "heic", "heif"] as const;
-const LOSSY_FORMATS = ["jpg", "jpeg", "webp", "avif", "heic", "heif"];
+const OUTPUT_FORMATS = [
+  "png",
+  "jpg",
+  "webp",
+  "avif",
+  "tiff",
+  "gif",
+  "heic",
+  "heif",
+  "jxl",
+] as const;
+const LOSSY_FORMATS = ["jpg", "jpeg", "webp", "avif", "heic", "heif", "jxl"];
 
 export interface UpscaleControlsProps {
   settings?: Record<string, unknown>;

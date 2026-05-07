@@ -6,7 +6,7 @@ import { formatZodErrors } from "../../lib/errors.js";
 import { ensureSharpCompat } from "../../lib/heic-converter.js";
 
 const settingsSchema = z.object({
-  outputFormat: z.enum(["original", "jpeg", "png", "webp", "avif"]).default("original"),
+  outputFormat: z.enum(["original", "jpeg", "png", "webp", "avif", "jxl"]).default("original"),
   quality: z.number().int().min(1).max(100).default(80),
   maxWidth: z.number().int().min(0).default(0),
   maxHeight: z.number().int().min(0).default(0),
@@ -144,6 +144,10 @@ export function registerImageToBase64(app: FastifyInstance) {
               case "avif":
                 outputBuffer = await pipeline.avif({ quality: opts.quality, effort: 4 }).toBuffer();
                 mimeType = "image/avif";
+                break;
+              case "jxl":
+                outputBuffer = await pipeline.jxl({ quality: opts.quality }).toBuffer();
+                mimeType = "image/jxl";
                 break;
               default:
                 outputBuffer = await pipeline.toBuffer();

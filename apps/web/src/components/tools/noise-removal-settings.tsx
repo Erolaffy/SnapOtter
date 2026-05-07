@@ -13,7 +13,7 @@ const TIERS: { id: Tier; label: string; desc: string }[] = [
   { id: "maximum", label: "Maximum", desc: "Best AI model, slowest" },
 ];
 
-const LOSSY_FORMATS = new Set(["jpeg", "webp", "avif"]);
+const LOSSY_FORMATS = new Set(["jpeg", "webp", "avif", "jxl"]);
 
 export interface NoiseRemovalControlsProps {
   settings?: Record<string, unknown>;
@@ -28,9 +28,9 @@ export function NoiseRemovalControls({
   const [strength, setStrength] = useState(50);
   const [detailPreservation, setDetailPreservation] = useState(50);
   const [colorNoise, setColorNoise] = useState(30);
-  const [outputFormat, setOutputFormat] = useState<"original" | "png" | "jpeg" | "webp" | "avif">(
-    "original",
-  );
+  const [outputFormat, setOutputFormat] = useState<
+    "original" | "png" | "jpeg" | "webp" | "avif" | "jxl"
+  >("original");
   const [quality, setQuality] = useState(90);
 
   // One-time init from pipeline settings
@@ -44,7 +44,9 @@ export function NoiseRemovalControls({
       setDetailPreservation(Number(initialSettings.detailPreservation));
     if (initialSettings.colorNoise != null) setColorNoise(Number(initialSettings.colorNoise));
     if (initialSettings.format != null)
-      setOutputFormat(initialSettings.format as "original" | "png" | "jpeg" | "webp" | "avif");
+      setOutputFormat(
+        initialSettings.format as "original" | "png" | "jpeg" | "webp" | "avif" | "jxl",
+      );
     if (initialSettings.quality != null) setQuality(Number(initialSettings.quality));
   }, [initialSettings]);
 
@@ -164,8 +166,8 @@ export function NoiseRemovalControls({
       {/* Output format */}
       <div>
         <p className="text-xs text-muted-foreground mb-1">Output Format</p>
-        <div className="grid grid-cols-5 gap-1">
-          {(["original", "png", "jpeg", "webp", "avif"] as const).map((f) => (
+        <div className="grid grid-cols-3 gap-1">
+          {(["original", "png", "jpeg", "webp", "avif", "jxl"] as const).map((f) => (
             <button
               key={f}
               type="button"

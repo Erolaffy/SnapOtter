@@ -23,7 +23,7 @@ import type {
   Guide,
 } from "@/types/editor";
 
-type ExportFormat = "png" | "jpeg" | "webp";
+type ExportFormat = "png" | "jpeg" | "webp" | "avif" | "tiff" | "gif" | "jxl";
 
 interface ExportSettings {
   format: ExportFormat;
@@ -34,21 +34,32 @@ interface ExportSettings {
   transparent: boolean;
 }
 
-const FORMAT_OPTIONS: { value: ExportFormat; label: string; supportsTransparency: boolean }[] = [
-  { value: "png", label: "PNG", supportsTransparency: true },
-  { value: "jpeg", label: "JPEG", supportsTransparency: false },
-  { value: "webp", label: "WebP", supportsTransparency: true },
+const FORMAT_OPTIONS: {
+  value: ExportFormat;
+  label: string;
+  supportsTransparency: boolean;
+  needsServerConvert: boolean;
+}[] = [
+  { value: "png", label: "PNG", supportsTransparency: true, needsServerConvert: false },
+  { value: "jpeg", label: "JPEG", supportsTransparency: false, needsServerConvert: false },
+  { value: "webp", label: "WebP", supportsTransparency: true, needsServerConvert: false },
+  { value: "avif", label: "AVIF", supportsTransparency: true, needsServerConvert: true },
+  { value: "tiff", label: "TIFF", supportsTransparency: true, needsServerConvert: true },
+  { value: "gif", label: "GIF", supportsTransparency: true, needsServerConvert: true },
+  { value: "jxl", label: "JXL", supportsTransparency: true, needsServerConvert: true },
 ];
 
 function getMimeType(format: ExportFormat): string {
-  switch (format) {
-    case "png":
-      return "image/png";
-    case "jpeg":
-      return "image/jpeg";
-    case "webp":
-      return "image/webp";
-  }
+  const mimes: Record<ExportFormat, string> = {
+    png: "image/png",
+    jpeg: "image/jpeg",
+    webp: "image/webp",
+    avif: "image/avif",
+    tiff: "image/tiff",
+    gif: "image/gif",
+    jxl: "image/jxl",
+  };
+  return mimes[format];
 }
 
 export function ExportDialog({ onClose }: { onClose: () => void }) {
@@ -77,9 +88,14 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
     const maxPreview = 200;
     const scale = Math.min(maxPreview / canvasSize.width, maxPreview / canvasSize.height);
 
+    // For server-convert formats the Canvas API cannot produce a preview,
+    // so fall back to PNG for the thumbnail.
+    const fmtOpt = FORMAT_OPTIONS.find((o) => o.value === settings.format);
+    const previewMime = fmtOpt?.needsServerConvert ? "image/png" : getMimeType(settings.format);
+
     const url = stage.toDataURL({
       pixelRatio: scale,
-      mimeType: getMimeType(settings.format),
+      mimeType: previewMime,
       quality: settings.quality / 100,
       x: 0,
       y: 0,
@@ -134,6 +150,69 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
     if (!stage) return;
 
     const pixelRatio = settings.width / canvasSize.width;
+
+    // Server-side convert for formats the Canvas API cannot produce
+    const formatOption = FORMAT_OPTIONS.find((o) => o.value === settings.format);
+    if (formatOption?.needsServerConvert) {
+      let stageCanvas: HTMLCanvasElement;
+      if (!settings.transparent || settings.format === "jpeg") {
+        const raw = stage.toCanvas({
+          pixelRatio,
+          x: 0,
+          y: 0,
+          width: canvasSize.width,
+          height: canvasSize.height,
+        });
+        const exportCanvas = document.createElement("canvas");
+        exportCanvas.width = raw.width;
+        exportCanvas.height = raw.height;
+        const ctx = exportCanvas.getContext("2d");
+        if (!ctx) return;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+        ctx.drawImage(raw, 0, 0);
+        stageCanvas = exportCanvas;
+      } else {
+        stageCanvas = stage.toCanvas({
+          pixelRatio,
+          x: 0,
+          y: 0,
+          width: canvasSize.width,
+          height: canvasSize.height,
+        });
+      }
+
+      stageCanvas.toBlob(async (blob) => {
+        if (!blob) return;
+        const formData = new FormData();
+        formData.append("file", blob, "export.png");
+        formData.append(
+          "settings",
+          JSON.stringify({ format: settings.format, quality: settings.quality }),
+        );
+        try {
+          const res = await fetch("/api/v1/tools/convert", {
+            method: "POST",
+            body: formData,
+          });
+          if (!res.ok) throw new Error("Server convert failed");
+          const json = await res.json();
+          if (json.downloadUrl) {
+            const a = document.createElement("a");
+            a.href = json.downloadUrl;
+            a.download = `export.${settings.format}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            markClean();
+          }
+        } catch (err) {
+          console.error("Server-side export failed:", err);
+        }
+      }, "image/png");
+      return;
+    }
+
     let dataUrl: string;
 
     if (!settings.transparent || settings.format === "jpeg") {
@@ -306,7 +385,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }) {
     [onClose],
   );
 
-  const supportsQuality = settings.format === "jpeg" || settings.format === "webp";
+  const supportsQuality = settings.format !== "png";
   const supportsTransparency = settings.format !== "jpeg";
 
   return (

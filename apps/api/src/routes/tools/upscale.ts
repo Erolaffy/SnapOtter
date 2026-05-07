@@ -158,7 +158,7 @@ export function registerUpscale(app: FastifyInstance) {
     // The result will be delivered via the SSE progress channel.
     reply.status(202).send({ jobId: progressJobId, async: true });
 
-    const needsNodeConversion = ["heic", "heif", "avif"].includes(format);
+    const needsNodeConversion = ["heic", "heif", "avif", "jxl"].includes(format);
     const pythonFormat = needsNodeConversion ? "png" : format;
 
     const onProgress = (percent: number, stage: string) => {
@@ -185,6 +185,9 @@ export function registerUpscale(app: FastifyInstance) {
         if (format === "heic" || format === "heif") {
           outputBuffer = await encodeHeic(result.buffer, outputQuality);
           finalFormat = format;
+        } else if (format === "jxl") {
+          outputBuffer = await sharp(result.buffer).jxl({ quality: outputQuality }).toBuffer();
+          finalFormat = "jxl";
         } else if (format === "avif") {
           outputBuffer = await sharp(result.buffer).avif({ quality: outputQuality }).toBuffer();
           finalFormat = "avif";
@@ -201,6 +204,7 @@ export function registerUpscale(app: FastifyInstance) {
         avif: "avif",
         heic: "heic",
         heif: "heif",
+        jxl: "jxl",
       };
       const ext = EXT_MAP[finalFormat] || "png";
       const outputFilename = `${filename.replace(/\.[^.]+$/, "")}_${scale}x.${ext}`;

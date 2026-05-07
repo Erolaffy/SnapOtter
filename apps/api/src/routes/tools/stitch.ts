@@ -24,7 +24,7 @@ const settingsSchema = z.object({
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/)
     .default("#FFFFFF"),
-  format: z.enum(["png", "jpeg", "webp", "avif"]).default("png"),
+  format: z.enum(["png", "jpeg", "webp", "avif", "jxl"]).default("png"),
   quality: z.number().min(1).max(100).default(90),
 });
 
@@ -203,6 +203,8 @@ export function registerStitch(app: FastifyInstance) {
         pipeline = pipeline.webp({ quality: settings.quality });
       } else if (settings.format === "avif") {
         pipeline = pipeline.avif({ quality: settings.quality, effort: 4 });
+      } else if (settings.format === "jxl") {
+        pipeline = pipeline.jxl({ quality: settings.quality });
       } else {
         pipeline = pipeline.png();
       }
@@ -235,6 +237,8 @@ export function registerStitch(app: FastifyInstance) {
           result = await sharp(result).webp({ quality: settings.quality }).toBuffer();
         } else if (settings.format === "avif") {
           result = await sharp(result).avif({ quality: settings.quality, effort: 4 }).toBuffer();
+        } else if (settings.format === "jxl") {
+          result = await sharp(result).jxl({ quality: settings.quality }).toBuffer();
         }
       }
 

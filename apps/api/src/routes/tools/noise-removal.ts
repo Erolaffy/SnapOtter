@@ -21,7 +21,7 @@ const settingsSchema = z.object({
   strength: z.union([z.number(), z.string()]).transform(Number).default(50),
   detailPreservation: z.union([z.number(), z.string()]).transform(Number).default(50),
   colorNoise: z.union([z.number(), z.string()]).transform(Number).default(30),
-  format: z.enum(["original", "png", "jpeg", "webp", "avif"]).default("original"),
+  format: z.enum(["original", "png", "jpeg", "webp", "avif", "jxl"]).default("original"),
   quality: z.union([z.number(), z.string()]).transform(Number).default(90),
 });
 
@@ -198,7 +198,7 @@ export function registerNoiseRemoval(app: FastifyInstance) {
       strength: z.union([z.number(), z.string()]).transform(Number).default(50),
       detailPreservation: z.union([z.number(), z.string()]).transform(Number).default(50),
       colorNoise: z.union([z.number(), z.string()]).transform(Number).default(30),
-      format: z.enum(["original", "png", "jpeg", "webp", "avif"]).default("original"),
+      format: z.enum(["original", "png", "jpeg", "webp", "avif", "jxl"]).default("original"),
       quality: z.union([z.number(), z.string()]).transform(Number).default(90),
     }),
     process: async (inputBuffer, settings, filename) => {

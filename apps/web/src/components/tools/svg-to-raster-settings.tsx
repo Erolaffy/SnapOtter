@@ -4,12 +4,12 @@ import { ProgressCard } from "@/components/common/progress-card";
 import { useToolProcessor } from "@/hooks/use-tool-processor";
 import { useFileStore } from "@/stores/file-store";
 
-type OutputFormat = "png" | "jpg" | "webp" | "avif" | "tiff" | "gif" | "heif";
+type OutputFormat = "png" | "jpg" | "webp" | "avif" | "tiff" | "gif" | "heif" | "jxl";
 type SizingMode = "scale" | "custom";
 type BgMode = "transparent" | "color";
 
-const FORMATS: OutputFormat[] = ["png", "jpg", "webp", "avif", "tiff", "gif", "heif"];
-const LOSSY_FORMATS: OutputFormat[] = ["jpg", "webp", "avif", "heif"];
+const FORMATS: OutputFormat[] = ["png", "jpg", "webp", "avif", "tiff", "gif", "heif", "jxl"];
+const LOSSY_FORMATS: OutputFormat[] = ["jpg", "webp", "avif", "heif", "jxl"];
 const NO_TRANSPARENCY_FORMATS: OutputFormat[] = ["jpg", "tiff"];
 
 const SCALE_PRESETS = [0.5, 1, 2, 3, 4];

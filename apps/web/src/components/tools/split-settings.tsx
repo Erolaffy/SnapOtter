@@ -29,9 +29,10 @@ const OUTPUT_FORMATS = [
   { value: "jpg", label: "JPG" },
   { value: "webp", label: "WebP" },
   { value: "avif", label: "AVIF" },
+  { value: "jxl", label: "JXL" },
 ] as const;
 
-const LOSSY_FORMATS = new Set(["jpg", "webp", "avif"]);
+const LOSSY_FORMATS = new Set(["jpg", "webp", "avif", "jxl"]);
 
 export function SplitSettings() {
   const { files, processing: fileStoreProcessing } = useFileStore();

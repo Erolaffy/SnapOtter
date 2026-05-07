@@ -17,6 +17,7 @@ const FORMAT_CONTENT_TYPES: Record<string, string> = {
   jpeg: "image/jpeg",
   avif: "image/avif",
   png: "image/png",
+  jxl: "image/jxl",
 };
 
 const FORMAT_EXTENSIONS: Record<string, string> = {
@@ -24,10 +25,11 @@ const FORMAT_EXTENSIONS: Record<string, string> = {
   jpeg: "jpg",
   avif: "avif",
   png: "png",
+  jxl: "jxl",
 };
 
 const settingsSchema = z.object({
-  format: z.enum(["webp", "jpeg", "avif", "png"]).default("webp"),
+  format: z.enum(["webp", "jpeg", "avif", "png", "jxl"]).default("webp"),
   quality: z.number().min(1).max(100).default(80),
   maxWidth: z.number().positive().optional(),
   maxHeight: z.number().positive().optional(),

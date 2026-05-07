@@ -26,13 +26,14 @@ const EXT_MAP: Record<string, string> = {
   avif: "avif",
   heic: "heic",
   heif: "heif",
+  jxl: "jxl",
 };
 
 const BROWSER_PREVIEWABLE = new Set(["png", "jpg", "jpeg", "webp", "gif", "avif", "bmp"]);
 
 const settingsSchema = z.object({
   format: z
-    .enum(["auto", "png", "jpg", "jpeg", "webp", "tiff", "gif", "avif", "heic", "heif"])
+    .enum(["auto", "png", "jpg", "jpeg", "webp", "tiff", "gif", "avif", "heic", "heif", "jxl"])
     .default("auto"),
   quality: z.number().int().min(1).max(100).default(95),
 });
@@ -203,7 +204,7 @@ export function registerEraseObject(app: FastifyInstance) {
       );
 
       // Convert to the requested output format using Sharp
-      const needsNodeConversion = ["heic", "heif", "avif"].includes(format);
+      const needsNodeConversion = ["heic", "heif", "avif", "jxl"].includes(format);
       let outputBuffer: Buffer;
       let finalFormat = format;
 
@@ -211,6 +212,9 @@ export function registerEraseObject(app: FastifyInstance) {
         if (format === "heic" || format === "heif") {
           outputBuffer = await encodeHeic(resultBuffer, quality);
           finalFormat = format;
+        } else if (format === "jxl") {
+          outputBuffer = await sharp(resultBuffer).jxl({ quality }).toBuffer();
+          finalFormat = "jxl";
         } else {
           outputBuffer = await sharp(resultBuffer).avif({ quality }).toBuffer();
           finalFormat = "avif";

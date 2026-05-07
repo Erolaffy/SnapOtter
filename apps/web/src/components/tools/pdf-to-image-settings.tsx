@@ -11,6 +11,7 @@ const FORMAT_OPTIONS = [
   { value: "gif", label: "GIF" },
   { value: "heic", label: "HEIC" },
   { value: "heif", label: "HEIF" },
+  { value: "jxl", label: "JXL" },
 ];
 
 const DPI_PRESETS = [
@@ -33,7 +34,7 @@ const COLOR_MODE_OPTIONS = [
   { value: "bw", label: "B&W" },
 ] as const;
 
-const LOSSY_FORMATS = ["jpg", "webp", "avif", "heic", "heif"];
+const LOSSY_FORMATS = ["jpg", "webp", "avif", "heic", "heif", "jxl"];
 
 export function PdfToImageSettings() {
   const store = usePdfToImageStore();

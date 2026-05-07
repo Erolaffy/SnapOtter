@@ -39,6 +39,8 @@ export async function optimizeForWeb(image: Sharp, options: OptimizeForWebOption
       return pipeline.avif({ quality, effort: 4 });
     case "png":
       return pipeline.png({ compressionLevel: 9, palette: true });
+    case "jxl":
+      return pipeline.jxl({ quality, effort: 7 });
     default:
       throw new Error(`Unsupported format: ${format}`);
   }

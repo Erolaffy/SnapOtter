@@ -6,8 +6,18 @@ import { generateId } from "@/lib/utils";
 import { useFileStore } from "@/stores/file-store";
 import type { EraserCanvasRef } from "./eraser-canvas";
 
-const OUTPUT_FORMATS = ["png", "jpg", "webp", "avif", "tiff", "gif", "heic", "heif"] as const;
-const LOSSY_FORMATS = ["jpg", "jpeg", "webp", "avif", "heic", "heif"];
+const OUTPUT_FORMATS = [
+  "png",
+  "jpg",
+  "webp",
+  "avif",
+  "tiff",
+  "gif",
+  "heic",
+  "heif",
+  "jxl",
+] as const;
+const LOSSY_FORMATS = ["jpg", "jpeg", "webp", "avif", "heic", "heif", "jxl"];
 
 interface EraseObjectSettingsProps {
   eraserRef: React.RefObject<EraserCanvasRef | null>;

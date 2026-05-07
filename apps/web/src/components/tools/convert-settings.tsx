@@ -4,8 +4,38 @@ import { ProgressCard } from "@/components/common/progress-card";
 import { useToolProcessor } from "@/hooks/use-tool-processor";
 import { useFileStore } from "@/stores/file-store";
 
-const OUTPUT_FORMATS = ["jpg", "png", "webp", "avif", "tiff", "gif", "heic", "heif"] as const;
-const LOSSY_FORMATS = ["jpg", "jpeg", "webp", "avif", "heic", "heif"];
+const OUTPUT_FORMATS = [
+  "jpg",
+  "png",
+  "webp",
+  "avif",
+  "tiff",
+  "gif",
+  "heic",
+  "heif",
+  "jxl",
+  "bmp",
+  "ico",
+  "jp2",
+  "qoi",
+] as const;
+const LOSSY_FORMATS = ["jpg", "jpeg", "webp", "avif", "heic", "heif", "jxl", "jp2"];
+
+const FORMAT_LABELS: Record<string, string> = {
+  jpg: "JPG",
+  png: "PNG",
+  webp: "WebP",
+  avif: "AVIF",
+  tiff: "TIFF",
+  gif: "GIF",
+  heic: "HEIC",
+  heif: "HEIF",
+  jxl: "JXL",
+  bmp: "BMP",
+  ico: "ICO",
+  jp2: "JP2",
+  qoi: "QOI",
+};
 
 export interface ConvertControlsProps {
   settings?: Record<string, unknown>;
@@ -54,7 +84,7 @@ export function ConvertControls({ settings: initialSettings, onChange }: Convert
         >
           {OUTPUT_FORMATS.map((f) => (
             <option key={f} value={f}>
-              {f.toUpperCase()}
+              {FORMAT_LABELS[f] ?? f.toUpperCase()}
             </option>
           ))}
         </select>

@@ -26,7 +26,7 @@ const settingsSchema = z.object({
     .string()
     .regex(/^#[0-9a-fA-F]{6,8}$/)
     .default("#00000000"),
-  outputFormat: z.enum(["png", "jpg", "webp", "avif", "tiff", "gif", "heif"]).default("png"),
+  outputFormat: z.enum(["png", "jpg", "webp", "avif", "tiff", "gif", "heif", "jxl"]).default("png"),
 });
 
 interface ParsedSvgFile {
@@ -76,6 +76,10 @@ async function convertSvg(
     case "gif":
       buffer = await image.gif().toBuffer();
       ext = "gif";
+      break;
+    case "jxl":
+      buffer = await image.jxl({ quality: settings.quality }).toBuffer();
+      ext = "jxl";
       break;
     case "heif": {
       const pngBuffer = await image.png().toBuffer();

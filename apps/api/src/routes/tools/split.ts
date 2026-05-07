@@ -15,7 +15,7 @@ const settingsSchema = z.object({
   rows: z.number().min(1).max(100).default(3),
   tileWidth: z.number().min(10).optional(),
   tileHeight: z.number().min(10).optional(),
-  outputFormat: z.enum(["original", "png", "jpg", "webp", "avif"]).default("original"),
+  outputFormat: z.enum(["original", "png", "jpg", "webp", "avif", "jxl"]).default("original"),
   quality: z.number().min(1).max(100).default(90),
 });
 
@@ -31,6 +31,7 @@ function resolveOutputFormat(
     jpg: { sharpFormat: "jpeg", ext: ".jpg" },
     webp: { sharpFormat: "webp", ext: ".webp" },
     avif: { sharpFormat: "avif", ext: ".avif" },
+    jxl: { sharpFormat: "jxl", ext: ".jxl" },
   };
   return map[outputFormat] ?? { sharpFormat: null, ext: originalExt };
 }

@@ -187,7 +187,7 @@ export interface CorrectionParams {
 }
 
 export interface OptimizeForWebOptions {
-  format: "webp" | "jpeg" | "avif" | "png";
+  format: "webp" | "jpeg" | "avif" | "png" | "jxl";
   quality: number;
   maxWidth?: number;
   maxHeight?: number;

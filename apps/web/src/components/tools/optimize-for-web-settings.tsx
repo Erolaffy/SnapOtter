@@ -5,7 +5,7 @@ import { useToolProcessor } from "@/hooks/use-tool-processor";
 import { formatHeaders } from "@/lib/api";
 import { useFileStore } from "@/stores/file-store";
 
-type WebFormat = "webp" | "jpeg" | "avif" | "png";
+type WebFormat = "webp" | "jpeg" | "avif" | "png" | "jxl";
 
 interface PreviewState {
   loading: boolean;
@@ -19,6 +19,7 @@ const FORMAT_LABELS: Record<WebFormat, string> = {
   jpeg: "JPEG",
   avif: "AVIF",
   png: "PNG",
+  jxl: "JXL",
 };
 
 function formatSize(bytes: number): string {
@@ -200,8 +201,8 @@ export function OptimizeForWebSettings() {
       {/* Format selector */}
       <div>
         <p className="text-sm font-medium text-muted-foreground">Output Format</p>
-        <div className="grid grid-cols-4 gap-1 mt-1">
-          {(["webp", "jpeg", "avif", "png"] as const).map((f) => (
+        <div className="grid grid-cols-5 gap-1 mt-1">
+          {(["webp", "jpeg", "avif", "png", "jxl"] as const).map((f) => (
             <button
               key={f}
               type="button"

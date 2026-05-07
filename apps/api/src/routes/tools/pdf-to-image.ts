@@ -14,7 +14,9 @@ import { createWorkspace } from "../../lib/workspace.js";
 
 // ── Settings schema ──────────────────────────────────────────────
 const settingsSchema = z.object({
-  format: z.enum(["png", "jpg", "webp", "avif", "tiff", "gif", "heic", "heif"]).default("png"),
+  format: z
+    .enum(["png", "jpg", "webp", "avif", "tiff", "gif", "heic", "heif", "jxl"])
+    .default("png"),
   dpi: z.number().min(36).max(2400).default(150),
   quality: z.number().min(1).max(100).default(85),
   colorMode: z.enum(["color", "grayscale", "bw"]).default("color"),
@@ -86,6 +88,7 @@ const FORMAT_EXT: Record<string, string> = {
   gif: ".gif",
   heic: ".heic",
   heif: ".heif",
+  jxl: ".jxl",
 };
 
 async function convertWithSharp(
@@ -114,6 +117,8 @@ async function convertWithSharp(
       return s.tiff().toBuffer();
     case "gif":
       return s.gif().toBuffer();
+    case "jxl":
+      return s.jxl({ quality }).toBuffer();
     case "heic":
     case "heif": {
       const pngBuf = await s.png().toBuffer();

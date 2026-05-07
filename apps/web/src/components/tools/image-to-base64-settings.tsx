@@ -10,6 +10,7 @@ const OUTPUT_FORMATS = [
   { value: "png", label: "PNG" },
   { value: "webp", label: "WebP" },
   { value: "avif", label: "AVIF" },
+  { value: "jxl", label: "JXL" },
 ] as const;
 
 export function ImageToBase64Settings() {
@@ -69,7 +70,11 @@ export function ImageToBase64Settings() {
   };
 
   const hasFiles = files.length > 0;
-  const showQuality = outputFormat === "jpeg" || outputFormat === "webp" || outputFormat === "avif";
+  const showQuality =
+    outputFormat === "jpeg" ||
+    outputFormat === "webp" ||
+    outputFormat === "avif" ||
+    outputFormat === "jxl";
 
   return (
     <div className="space-y-4">
