@@ -4,6 +4,7 @@ import { readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import sharp from "sharp";
 
 const execFileAsync = promisify(execFile);
 
@@ -440,8 +441,14 @@ async function decodeFits(buffer: Buffer): Promise<Buffer> {
   }
 }
 
-// ── QOI decoder (stub -- real codec comes in Task 4) ──
+// ── QOI decoder ──
 
-async function decodeQoi(_buffer: Buffer): Promise<Buffer> {
-  throw new Error("QOI decode not yet implemented");
+async function decodeQoi(buffer: Buffer): Promise<Buffer> {
+  const { qoiDecode } = await import("@snapotter/image-engine");
+  const { header, pixels } = qoiDecode(new Uint8Array(buffer));
+  return sharp(Buffer.from(pixels), {
+    raw: { width: header.width, height: header.height, channels: 4 },
+  })
+    .png()
+    .toBuffer();
 }

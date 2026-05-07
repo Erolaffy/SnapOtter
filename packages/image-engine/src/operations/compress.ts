@@ -10,10 +10,11 @@ const FORMAT_MAP: Record<string, string> = {
   heif: "avif",
   tiff: "tiff",
   gif: "gif",
+  jxl: "jxl",
 };
 
 /** Formats that Sharp cannot encode — fall back to PNG for output. */
-const NO_ENCODER = new Set(["svg", "bmp", "raw", "tga", "psd", "exr", "hdr", "ico"]);
+const NO_ENCODER = new Set(["svg", "raw", "tga", "psd", "exr", "hdr"]);
 
 function formatOpts(format: string, quality: number): Record<string, unknown> {
   const opts: Record<string, unknown> = { quality };

@@ -18,14 +18,14 @@ const FORMAT_MAP: Record<
   tiff: { format: "tiff", extension: "tiff", contentType: "image/tiff" },
   avif: { format: "avif", extension: "avif", contentType: "image/avif" },
   heif: { format: "avif", extension: "avif", contentType: "image/avif" },
-  jxl: { format: "png", extension: "png", contentType: "image/png" },
+  jxl: { format: "jxl" as keyof sharp.FormatEnum, extension: "jxl", contentType: "image/jxl" },
 };
 
 const DEFAULT_QUALITY = 95;
 const PNG_FALLBACK = FORMAT_MAP.png;
 
 /** Formats that have no Sharp output encoder — fall back to PNG. */
-const PNG_FALLBACK_FORMATS = new Set(["svg", "bmp", "raw", "tga", "psd", "exr", "hdr", "ico"]);
+const PNG_FALLBACK_FORMATS = new Set(["svg", "raw", "tga", "psd", "exr", "hdr"]);
 
 /**
  * Detect the input image format and return matching output config.

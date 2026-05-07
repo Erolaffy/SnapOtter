@@ -26,7 +26,11 @@ export type OutputFormat =
   | "gif"
   | "heic"
   | "heif"
-  | "jxl";
+  | "jxl"
+  | "bmp"
+  | "ico"
+  | "jp2"
+  | "qoi";
 
 export interface ResizeOptions {
   width?: number;
