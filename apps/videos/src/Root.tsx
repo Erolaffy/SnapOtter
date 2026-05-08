@@ -12,6 +12,7 @@ import { FloatingTools } from "./compositions/ambient/FloatingTools";
 import { AiMagicReel } from "./compositions/features/AiMagicReel";
 import { FormatUniverse } from "./compositions/features/FormatUniverse";
 import { PipelineFlow } from "./compositions/features/PipelineFlow";
+import { PrivacyPromise } from "./compositions/hero/PrivacyPromise";
 import { TEXT } from "./lib/fonts";
 
 const ComponentTest: React.FC = () => (
@@ -100,6 +101,14 @@ export const RemotionRoot: React.FC = () => (
       fps={30}
       width={800}
       height={600}
+    />
+    <Composition
+      id="PrivacyPromise"
+      component={PrivacyPromise}
+      durationInFrames={300}
+      fps={30}
+      width={1920}
+      height={1080}
     />
   </>
 );
