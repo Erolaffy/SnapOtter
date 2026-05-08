@@ -32,7 +32,7 @@ const GRID_Y = (1080 - GRID_H) / 2 + 40;
 
 const CX = 1920 / 2;
 const CY = 1080 / 2;
-const FRAMES_PER_TOOL = 15;
+const FRAMES_PER_TOOL = 10;
 
 /* ------------------------------------------------------------------ */
 /*  Pre-compute tool order and grid positions                          */
@@ -98,11 +98,28 @@ function getMicroViz(name: string, category: string): MicroViz {
 /*  Entry direction helper                                             */
 /* ------------------------------------------------------------------ */
 
-type Direction = "left" | "right" | "top";
+type Direction =
+  | "left"
+  | "right"
+  | "top"
+  | "bottom"
+  | "diag-tl"
+  | "diag-tr"
+  | "diag-bl"
+  | "diag-br";
 
 function getEntryDirection(index: number): Direction {
-  if (index % 8 === 0 && index > 0) return "top";
-  return index % 2 === 0 ? "left" : "right";
+  const dirs: Direction[] = [
+    "left",
+    "right",
+    "top",
+    "bottom",
+    "diag-tl",
+    "diag-tr",
+    "diag-bl",
+    "diag-br",
+  ];
+  return dirs[index % dirs.length];
 }
 
 function getEntryPosition(dir: Direction): { x: number; y: number } {
@@ -113,6 +130,16 @@ function getEntryPosition(dir: Direction): { x: number; y: number } {
       return { x: 1920 + 200, y: CY };
     case "top":
       return { x: CX, y: -80 };
+    case "bottom":
+      return { x: CX, y: 1080 + 80 };
+    case "diag-tl":
+      return { x: -150, y: -80 };
+    case "diag-tr":
+      return { x: 1920 + 150, y: -80 };
+    case "diag-bl":
+      return { x: -150, y: 1080 + 80 };
+    case "diag-br":
+      return { x: 1920 + 150, y: 1080 + 80 };
   }
 }
 
@@ -167,9 +194,9 @@ const AnimatedToolPill: React.FC<{ tool: ToolEntry }> = ({ tool }) => {
   const entry = getEntryPosition(dir);
   const viz = getMicroViz(tool.name, tool.category);
 
-  // Phase 1: entrance (frame 0-3) -- edge to center
-  // Phase 2: center flash (frame 3-5) -- micro-visualization
-  // Phase 3: grid snap (frame 5-15) -- center to grid position
+  // Phase 1: entrance (frame 0-2) -- edge to center
+  // Phase 2: center flash (frame 2-6) -- micro-visualization (4 frames for visibility)
+  // Phase 3: grid snap (frame 6-10) -- center to grid position
 
   let x: number;
   let y: number;
@@ -178,20 +205,20 @@ const AnimatedToolPill: React.FC<{ tool: ToolEntry }> = ({ tool }) => {
   let sparkleProgress = 0;
   let showSparkle = false;
 
-  if (frame < 3) {
+  if (frame < 2) {
     // Entrance: edge to center
-    const t = interpolate(frame, [0, 3], [0, 1], {
+    const t = interpolate(frame, [0, 2], [0, 1], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
       easing: EASE.snap,
     });
     x = entry.x + (CX - entry.x) * t;
     y = entry.y + (CY - entry.y) * t;
-  } else if (frame < 5) {
-    // Center flash with micro-visualization
+  } else if (frame < 6) {
+    // Center flash with micro-visualization (4 frames)
     x = CX;
     y = CY;
-    const vizProgress = interpolate(frame, [3, 5], [0, 1], {
+    const vizProgress = interpolate(frame, [2, 6], [0, 1], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
     });
@@ -245,7 +272,7 @@ const AnimatedToolPill: React.FC<{ tool: ToolEntry }> = ({ tool }) => {
   } else {
     // Grid snap: center to grid position via spring
     const s = spring({
-      frame: frame - 5,
+      frame: frame - 6,
       fps,
       config: SPRING.settle,
     });
@@ -275,7 +302,7 @@ const AnimatedToolPill: React.FC<{ tool: ToolEntry }> = ({ tool }) => {
 
 const ToolEntrance: React.FC<{ tool: ToolEntry }> = ({ tool }) => {
   const frame = useCurrentFrame();
-  const inMotion = frame < 5;
+  const inMotion = frame < 6;
 
   if (inMotion) {
     return (
@@ -297,8 +324,7 @@ const ToolEntrance: React.FC<{ tool: ToolEntry }> = ({ tool }) => {
 const RunningCounter: React.FC = () => {
   const frame = useCurrentFrame();
 
-  // Counter shows how many tools have landed (reached frame 15 in their local sequence)
-  // Tool i starts at frame 30 + i*15, lands at frame 30 + i*15 + 15 = 45 + i*15
+  // Counter shows how many tools have landed (reached their local sequence end)
   let landed = 0;
   for (let i = 0; i < TOOL_ENTRIES.length; i++) {
     const landFrame = 30 + i * FRAMES_PER_TOOL + FRAMES_PER_TOOL;
@@ -306,19 +332,19 @@ const RunningCounter: React.FC = () => {
   }
 
   // Don't show counter before any tool has started
-  if (frame < 45) return null;
+  if (frame < 40) return null;
 
-  // During Act 3 (frame 770-810), counter transitions to "48 tools" and moves to center-top
-  const isAct3Text = frame >= 770;
+  // During Act 3 (frame 520-560), counter transitions to "48 tools" and moves to center-top
+  const isAct3Text = frame >= 520;
 
   // Fade in
-  const opacity = interpolate(frame, [45, 50], [0, 1], {
+  const opacity = interpolate(frame, [40, 45], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
   if (isAct3Text) {
-    const moveProgress = interpolate(frame, [770, 800], [0, 1], {
+    const moveProgress = interpolate(frame, [520, 550], [0, 1], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
       easing: EASE.enter,
@@ -378,12 +404,12 @@ const RunningCounter: React.FC = () => {
 const GridGlowWave: React.FC = () => {
   const frame = useCurrentFrame();
 
-  if (frame < 750 || frame > 780) return null;
+  if (frame < 500 || frame > 530) return null;
 
   return (
     <>
       {CATEGORY_ORDER.map((cat, colIdx) => {
-        const glowStart = 750 + colIdx * 3;
+        const glowStart = 500 + colIdx * 3;
         const glowOpacity = interpolate(
           frame,
           [glowStart, glowStart + 6, glowStart + 12],
@@ -425,10 +451,10 @@ const GridGlowWave: React.FC = () => {
 const CategoryLabelsRow: React.FC = () => {
   const frame = useCurrentFrame();
 
-  if (frame < 770) return null;
+  if (frame < 520) return null;
 
   // Act 4 fade
-  const act4Opacity = interpolate(frame, [810, 820], [1, 0.6], {
+  const act4Opacity = interpolate(frame, [560, 570], [1, 0.6], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -451,7 +477,7 @@ const CategoryLabelsRow: React.FC = () => {
               opacity: act4Opacity,
             }}
           >
-            <ClipReveal startFrame={770 + i * 3}>
+            <ClipReveal startFrame={520 + i * 3}>
               <span style={{ ...TEXT.label, fontSize: 12, color: catColor }}>
                 {CATEGORY_LABELS[cat]}
               </span>
@@ -504,23 +530,23 @@ export const The48: React.FC = () => {
 
   // During Act 4, header fades out
   const headerAct4Opacity =
-    frame >= 810
-      ? interpolate(frame, [810, 820], [0.7, 0], {
+    frame >= 560
+      ? interpolate(frame, [560, 570], [0.7, 0], {
           extrapolateLeft: "clamp",
           extrapolateRight: "clamp",
         })
       : headerOpacity;
 
   /* ================================================================ */
-  /*  Act 3: Grid pulse (frame 750-770)                                */
+  /*  Act 3: Grid pulse (frame 500-520)                                */
   /* ================================================================ */
 
   const gridPulseScale =
-    frame >= 750 && frame < 770
+    frame >= 500 && frame < 520
       ? 1 +
         0.015 *
           Math.sin(
-            interpolate(frame, [750, 770], [0, Math.PI], {
+            interpolate(frame, [500, 520], [0, Math.PI], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
             }),
@@ -528,12 +554,12 @@ export const The48: React.FC = () => {
       : 1.0;
 
   /* ================================================================ */
-  /*  Act 4: Grid fades, tagline (frame 810-840)                       */
+  /*  Act 4: Grid fades, tagline (frame 560-600)                       */
   /* ================================================================ */
 
   const gridOpacity =
-    frame >= 810
-      ? interpolate(frame, [810, 825], [1, 0.6], {
+    frame >= 560
+      ? interpolate(frame, [560, 575], [1, 0.6], {
           extrapolateLeft: "clamp",
           extrapolateRight: "clamp",
         })
@@ -561,7 +587,7 @@ export const The48: React.FC = () => {
       )}
 
       {/* ---- Title as header (frame 30+) ---- */}
-      {frame >= 30 && frame < 820 && (
+      {frame >= 30 && frame < 570 && (
         <div
           style={{
             position: "absolute",
@@ -597,7 +623,7 @@ export const The48: React.FC = () => {
           <Sequence
             key={tool.index}
             from={30 + tool.index * FRAMES_PER_TOOL}
-            durationInFrames={810 - (30 + tool.index * FRAMES_PER_TOOL)}
+            durationInFrames={560 - (30 + tool.index * FRAMES_PER_TOOL)}
             layout="none"
           >
             <ToolEntrance tool={tool} />
@@ -617,7 +643,7 @@ export const The48: React.FC = () => {
       <RunningCounter />
 
       {/* ---- Act 4: Tagline ---- */}
-      {frame >= 810 && (
+      {frame >= 560 && (
         <div
           style={{
             position: "absolute",
@@ -627,7 +653,7 @@ export const The48: React.FC = () => {
             textAlign: "center",
           }}
         >
-          <ClipReveal startFrame={810} duration={18}>
+          <ClipReveal startFrame={560} duration={18}>
             <span style={{ ...TEXT.sectionTitle }}>
               One container. <span style={{ color: COLOR.accent }}>Zero cloud.</span>
             </span>
