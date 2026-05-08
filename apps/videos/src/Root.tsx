@@ -14,6 +14,7 @@ import { FormatUniverse } from "./compositions/features/FormatUniverse";
 import { PipelineFlow } from "./compositions/features/PipelineFlow";
 import { OneCommand } from "./compositions/hero/OneCommand";
 import { PrivacyPromise } from "./compositions/hero/PrivacyPromise";
+import { ToolGalaxy } from "./compositions/hero/ToolGalaxy";
 import { PromoTeaser } from "./compositions/promo-teaser/PromoTeaser";
 import { PromoTeaserVertical } from "./compositions/promo-teaser/PromoTeaserVertical";
 import { TEXT } from "./lib/fonts";
@@ -117,6 +118,14 @@ export const RemotionRoot: React.FC = () => (
       id="OneCommand"
       component={OneCommand}
       durationInFrames={390}
+      fps={30}
+      width={1920}
+      height={1080}
+    />
+    <Composition
+      id="ToolGalaxy"
+      component={ToolGalaxy}
+      durationInFrames={660}
       fps={30}
       width={1920}
       height={1080}
