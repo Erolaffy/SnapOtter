@@ -8,6 +8,7 @@ import { registerBorder } from "./border.js";
 import { registerBulkRename } from "./bulk-rename.js";
 import { registerCollage } from "./collage.js";
 import { registerColorAdjustments } from "./color-adjustments.js";
+import { registerColorBlindness } from "./color-blindness.js";
 import { registerColorPalette } from "./color-palette.js";
 import { registerColorize } from "./colorize.js";
 import { registerCompare } from "./compare.js";
@@ -131,6 +132,7 @@ export async function registerToolRoutes(app: FastifyInstance): Promise<void> {
 
     // Adjustments extra
     { id: "replace-color", register: registerReplaceColor },
+    { id: "color-blindness", register: registerColorBlindness },
 
     // AI Tools
     { id: "remove-background", register: registerRemoveBackground },
