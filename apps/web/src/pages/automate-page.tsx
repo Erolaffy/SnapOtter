@@ -11,6 +11,7 @@ import {
   Plus,
   Save,
   Trash2,
+  Upload,
   Workflow,
   X,
 } from "lucide-react";
@@ -82,6 +83,7 @@ export function AutomatePage() {
   const [showAllSaved, setShowAllSaved] = useState(false);
   const [previewCollapsed, setPreviewCollapsed] = useState(false);
   const [mobileToolPaletteOpen, setMobileToolPaletteOpen] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const hasFile = files.length > 0;
   const hasProcessed = !!processedUrl;
@@ -257,6 +259,71 @@ export function AutomatePage() {
     a.click();
     URL.revokeObjectURL(url);
   }, []);
+
+  const handleImportPipeline = useCallback(async () => {
+    setImportError(null);
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+
+        if (data.format !== "snapotter-pipeline") {
+          setImportError("Not a valid SnapOtter pipeline file");
+          return;
+        }
+        if (typeof data.version !== "number" || data.version > 1) {
+          setImportError("This pipeline was created with a newer version of SnapOtter");
+          return;
+        }
+        if (!data.name || typeof data.name !== "string") {
+          setImportError("Pipeline file is missing a name");
+          return;
+        }
+        if (!Array.isArray(data.steps) || data.steps.length === 0) {
+          setImportError("Pipeline file has no steps");
+          return;
+        }
+
+        const res = await fetch("/api/v1/pipeline/save", {
+          method: "POST",
+          headers: formatHeaders({ "Content-Type": "application/json" }),
+          body: JSON.stringify({
+            name: data.name,
+            description: data.description || undefined,
+            steps: data.steps,
+          }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: "Import failed" }));
+          setImportError(err.error || "Import failed");
+          return;
+        }
+
+        const listRes = await fetch("/api/v1/pipeline/list", {
+          headers: formatHeaders(),
+        });
+        if (listRes.ok) {
+          const listData = await listRes.json();
+          setSavedPipelines(listData.pipelines || []);
+        }
+      } catch {
+        setImportError("Could not read pipeline file");
+      }
+    };
+    input.click();
+  }, [setSavedPipelines]);
+
+  useEffect(() => {
+    if (!importError) return;
+    const timer = setTimeout(() => setImportError(null), 5000);
+    return () => clearTimeout(timer);
+  }, [importError]);
 
   const handleDownloadAll = useCallback(() => {
     if (!batchZipBlob) return;
@@ -524,75 +591,91 @@ export function AutomatePage() {
           <ToolPalette onAddStep={handleAddStep} className="flex-1 min-h-0" />
 
           {/* Saved pipelines */}
-          {savedPipelines.length > 0 && (
-            <div className="px-3 py-2 border-t border-border shrink-0">
-              <h3 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider mb-1.5">
+          <div className="px-3 py-2 border-t border-border shrink-0">
+            <div className="flex items-center justify-between mb-1.5">
+              <h3 className="text-xs font-semibold uppercase text-muted-foreground tracking-wider">
                 Saved
               </h3>
-              {showAllSaved ? (
-                <div className="space-y-1 max-h-36 overflow-y-auto">
-                  {savedPipelines.map((p) => (
-                    <div key={p.id} className="flex items-center gap-1 group">
-                      <button
-                        type="button"
-                        onClick={() => handleLoadPipeline(p)}
-                        className="flex-1 text-left text-xs text-foreground hover:text-primary truncate py-1 px-2 rounded hover:bg-muted"
-                      >
-                        {p.name}
-                        <span className="text-muted-foreground ml-1">
-                          ({p.steps.length} step{p.steps.length !== 1 ? "s" : ""})
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleExportPipeline(p)}
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-all shrink-0"
-                      >
-                        <Download className="h-3 w-3" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeletePipeline(p.id)}
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all shrink-0"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => setShowAllSaved(false)}
-                    className="text-xs text-muted-foreground hover:text-foreground mt-1"
-                  >
-                    Show less
-                  </button>
-                </div>
-              ) : (
-                <div className="flex flex-wrap gap-1">
-                  {savedPipelines.slice(0, 3).map((p) => (
+              <button
+                type="button"
+                onClick={handleImportPipeline}
+                className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors"
+              >
+                <Upload className="h-3 w-3" />
+                Import
+              </button>
+            </div>
+            {importError && (
+              <div className="text-xs text-red-500 bg-red-50 dark:bg-red-950/30 rounded px-2 py-1.5 mb-1.5 flex items-start gap-1.5">
+                <X className="h-3 w-3 shrink-0 mt-0.5" />
+                <span>{importError}</span>
+              </div>
+            )}
+            {savedPipelines.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">No saved pipelines</p>
+            ) : showAllSaved ? (
+              <div className="space-y-1 max-h-36 overflow-y-auto">
+                {savedPipelines.map((p) => (
+                  <div key={p.id} className="flex items-center gap-1 group">
                     <button
-                      key={p.id}
                       type="button"
                       onClick={() => handleLoadPipeline(p)}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted text-xs text-foreground hover:bg-primary/10 hover:text-primary transition-colors truncate max-w-[110px]"
+                      className="flex-1 text-left text-xs text-foreground hover:text-primary truncate py-1 px-2 rounded hover:bg-muted"
                     >
-                      <Play className="h-3 w-3 shrink-0" />
-                      <span className="truncate">{p.name}</span>
+                      {p.name}
+                      <span className="text-muted-foreground ml-1">
+                        ({p.steps.length} step{p.steps.length !== 1 ? "s" : ""})
+                      </span>
                     </button>
-                  ))}
-                  {savedPipelines.length > 3 && (
                     <button
                       type="button"
-                      onClick={() => setShowAllSaved(true)}
-                      className="text-xs text-muted-foreground hover:text-foreground px-2 py-0.5"
+                      onClick={() => handleExportPipeline(p)}
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-all shrink-0"
                     >
-                      +{savedPipelines.length - 3} more
+                      <Download className="h-3 w-3" />
                     </button>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+                    <button
+                      type="button"
+                      onClick={() => handleDeletePipeline(p.id)}
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all shrink-0"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setShowAllSaved(false)}
+                  className="text-xs text-muted-foreground hover:text-foreground mt-1"
+                >
+                  Show less
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-1">
+                {savedPipelines.slice(0, 3).map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => handleLoadPipeline(p)}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted text-xs text-foreground hover:bg-primary/10 hover:text-primary transition-colors truncate max-w-[110px]"
+                  >
+                    <Play className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{p.name}</span>
+                  </button>
+                ))}
+                {savedPipelines.length > 3 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllSaved(true)}
+                    className="text-xs text-muted-foreground hover:text-foreground px-2 py-0.5"
+                  >
+                    +{savedPipelines.length - 3} more
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* RIGHT PANE — Pipeline Canvas + Preview */}
