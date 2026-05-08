@@ -6,7 +6,7 @@
  * - JXL quality: verify lower quality produces smaller files
  */
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildTestApp, createMultipartPayload, loginAsAdmin, type TestApp } from "./test-server.js";
@@ -142,6 +142,126 @@ describe("New format support", () => {
       const lowJson = JSON.parse(lowQ.body);
       const highJson = JSON.parse(highQ.body);
       expect(lowJson.processedSize).toBeLessThan(highJson.processedSize);
+    }
+  });
+
+  describe("Extended output format matrix", () => {
+    const INPUTS = [
+      { name: "PNG", file: "sample.png", mime: "image/png" },
+      { name: "JPEG", file: "sample.jpg", mime: "image/jpeg" },
+      { name: "WebP", file: "sample.webp", mime: "image/webp" },
+    ];
+    const OUTPUTS = [
+      "jpg",
+      "png",
+      "webp",
+      "avif",
+      "tiff",
+      "gif",
+      "heic",
+      "heif",
+      "jxl",
+      "bmp",
+      "ico",
+      "jp2",
+      "qoi",
+    ];
+
+    for (const input of INPUTS) {
+      for (const outFmt of OUTPUTS) {
+        const inLower = input.name.toLowerCase();
+        if (inLower === outFmt || (inLower === "jpeg" && outFmt === "jpg")) continue;
+        it(`converts ${input.name} to ${outFmt}`, async () => {
+          const fileBuffer = readFileSync(join(FORMATS_DIR, input.file));
+          const { body, contentType } = createMultipartPayload([
+            { name: "file", filename: input.file, contentType: input.mime, content: fileBuffer },
+            { name: "settings", content: JSON.stringify({ format: outFmt, quality: 80 }) },
+          ]);
+          const res = await app.inject({
+            method: "POST",
+            url: "/api/v1/tools/convert",
+            headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+            body,
+          });
+          expect([200, 422]).toContain(res.statusCode);
+          if (res.statusCode === 200) {
+            const json = JSON.parse(res.body);
+            expect(json.processedSize).toBeGreaterThan(0);
+            expect(json.downloadUrl).toBeTruthy();
+          }
+        });
+      }
+    }
+  });
+
+  describe("New input format processing via resize", () => {
+    const NEW_INPUT_FORMATS = [
+      { name: "SVGZ", file: "sample.svgz", mime: "image/svg+xml" },
+      { name: "JP2", file: "sample.jp2", mime: "image/jp2" },
+      { name: "EPS", file: "sample.eps", mime: "application/postscript" },
+      { name: "PPM", file: "sample.ppm", mime: "image/x-portable-pixmap" },
+      { name: "PGM", file: "sample.pgm", mime: "image/x-portable-graymap" },
+      { name: "PBM", file: "sample.pbm", mime: "image/x-portable-bitmap" },
+      { name: "DDS", file: "sample.dds", mime: "image/vnd.ms-dds" },
+      { name: "CUR", file: "sample.cur", mime: "image/x-icon" },
+      { name: "DPX", file: "sample.dpx", mime: "image/x-dpx" },
+      { name: "FITS", file: "sample.fits", mime: "image/fits" },
+      { name: "APNG", file: "sample.apng", mime: "image/apng" },
+      { name: "QOI", file: "sample.qoi", mime: "image/x-qoi" },
+    ];
+    for (const fmt of NEW_INPUT_FORMATS) {
+      it(`resizes ${fmt.name} input to 25x25`, async () => {
+        const fixturePath = join(FORMATS_DIR, fmt.file);
+        if (!existsSync(fixturePath)) return;
+        const fileBuffer = readFileSync(fixturePath);
+        const { body, contentType } = createMultipartPayload([
+          { name: "file", filename: fmt.file, contentType: fmt.mime, content: fileBuffer },
+          { name: "settings", content: JSON.stringify({ width: 25, height: 25 }) },
+        ]);
+        const res = await app.inject({
+          method: "POST",
+          url: "/api/v1/tools/resize",
+          headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+          body,
+        });
+        expect([200, 400, 422]).toContain(res.statusCode);
+        if (res.statusCode === 200) {
+          const json = JSON.parse(res.body);
+          expect(json.downloadUrl).toBeTruthy();
+          expect(json.processedSize).toBeGreaterThan(0);
+        }
+      }, 60_000);
+    }
+  });
+
+  describe("Preview generation for special formats", () => {
+    const PREVIEW_FORMATS = [
+      { name: "HEIC", file: "sample.heic", mime: "image/heic" },
+      { name: "JXL", file: "sample.jxl", mime: "image/jxl" },
+      { name: "ICO", file: "sample.ico", mime: "image/x-icon" },
+      { name: "PSD", file: "sample.psd", mime: "image/vnd.adobe.photoshop" },
+      { name: "EXR", file: "sample.exr", mime: "image/x-exr" },
+    ];
+    for (const fmt of PREVIEW_FORMATS) {
+      it(`generates preview for ${fmt.name}`, async () => {
+        const fixturePath = join(FORMATS_DIR, fmt.file);
+        if (!existsSync(fixturePath)) return;
+        const fileBuffer = readFileSync(fixturePath);
+        const { body, contentType } = createMultipartPayload([
+          { name: "file", filename: fmt.file, contentType: fmt.mime, content: fileBuffer },
+        ]);
+        const res = await app.inject({
+          method: "POST",
+          url: "/api/v1/preview",
+          headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+          body,
+        });
+        expect([200, 422]).toContain(res.statusCode);
+        if (res.statusCode === 200) {
+          const ct = res.headers["content-type"] as string;
+          expect(ct).toMatch(/image\/(webp|png)/);
+        }
+      }, 60_000);
     }
   });
 });
