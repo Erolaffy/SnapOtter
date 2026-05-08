@@ -167,6 +167,11 @@ export const en = {
       name: "Border & Frame",
       description: "Add borders, padding, rounded corners, and shadows with one-click presets",
     },
+    beautify: {
+      name: "Beautify Screenshot",
+      description:
+        "Add gradient backgrounds, device frames, shadows, and social media sizing to screenshots",
+    },
     "svg-to-raster": {
       name: "SVG to Raster",
       description:
