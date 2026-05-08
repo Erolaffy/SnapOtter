@@ -15,8 +15,10 @@ import { PipelineFlow } from "./compositions/features/PipelineFlow";
 import { OneCommand } from "./compositions/hero/OneCommand";
 import { PrivacyPromise } from "./compositions/hero/PrivacyPromise";
 import { ToolGalaxy } from "./compositions/hero/ToolGalaxy";
+import { ProductDemo } from "./compositions/product-demo/ProductDemo";
 import { PromoTeaser } from "./compositions/promo-teaser/PromoTeaser";
 import { PromoTeaserVertical } from "./compositions/promo-teaser/PromoTeaserVertical";
+import { The48 } from "./compositions/showcase/The48";
 import { XLaunchVideo } from "./compositions/x-launch/XLaunchVideo";
 import { TEXT } from "./lib/fonts";
 
@@ -153,6 +155,22 @@ export const RemotionRoot: React.FC = () => (
       durationInFrames={1050}
       fps={30}
       width={1080}
+      height={1080}
+    />
+    <Composition
+      id="The48"
+      component={The48}
+      durationInFrames={840}
+      fps={30}
+      width={1920}
+      height={1080}
+    />
+    <Composition
+      id="ProductDemo"
+      component={ProductDemo}
+      durationInFrames={2250}
+      fps={30}
+      width={1920}
       height={1080}
     />
   </>
