@@ -237,6 +237,27 @@ export function AutomatePage() {
     [loadSteps],
   );
 
+  const handleExportPipeline = useCallback((pipeline: SavedPipeline) => {
+    const exportData = {
+      format: "snapotter-pipeline" as const,
+      version: 1,
+      name: pipeline.name,
+      description: pipeline.description,
+      steps: pipeline.steps,
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const slug = pipeline.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${slug || "pipeline"}.snapotter.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, []);
+
   const handleDownloadAll = useCallback(() => {
     if (!batchZipBlob) return;
     const url = URL.createObjectURL(batchZipBlob);
@@ -521,6 +542,13 @@ export function AutomatePage() {
                         <span className="text-muted-foreground ml-1">
                           ({p.steps.length} step{p.steps.length !== 1 ? "s" : ""})
                         </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleExportPipeline(p)}
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-all shrink-0"
+                      >
+                        <Download className="h-3 w-3" />
                       </button>
                       <button
                         type="button"
