@@ -900,3 +900,21 @@ describe("Large file with modes", () => {
     expect(result.processedSize).toBeGreaterThan(0);
   });
 });
+
+// ── Deep Enhance ───────────────────────────────────────────────
+describe("Deep Enhance", () => {
+  it("accepts deepEnhance setting and returns 200", async () => {
+    const res = await postTool({ deepEnhance: true });
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+    expect(result.processedSize).toBeGreaterThan(0);
+  });
+
+  it("works without deepEnhance (default false)", async () => {
+    const res = await postTool({});
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+  });
+});

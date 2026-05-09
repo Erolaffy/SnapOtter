@@ -1,12 +1,18 @@
+import { randomUUID } from "node:crypto";
+import { mkdir } from "node:fs/promises";
+import { join } from "node:path";
+import { noiseRemoval } from "@snapotter/ai";
 import { analyzeImage, applyCorrections } from "@snapotter/image-engine";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import sharp from "sharp";
 import { z } from "zod";
 import { autoOrient } from "../../lib/auto-orient.js";
+import { isToolInstalled } from "../../lib/feature-status.js";
 import { validateImageBuffer } from "../../lib/file-validation.js";
 import { decodeToSharpCompat, needsCliDecode } from "../../lib/format-decoders.js";
 import { decodeHeic } from "../../lib/heic-converter.js";
 import { resolveOutputFormat } from "../../lib/output-format.js";
+import { createWorkspace } from "../../lib/workspace.js";
 import { createToolRoute } from "../tool-factory.js";
 
 const settingsSchema = z.object({
@@ -22,6 +28,7 @@ const settingsSchema = z.object({
       denoise: z.boolean().default(true),
     })
     .default({}),
+  deepEnhance: z.boolean().default(false),
 });
 
 type EnhancementSettings = z.infer<typeof settingsSchema>;
@@ -45,9 +52,27 @@ async function processImageEnhancement(
     { width: meta.width ?? 1, height: meta.height ?? 1 },
   );
 
-  const buffer = await image
+  let buffer = await image
     .toFormat(outputFormat.format, { quality: outputFormat.quality })
     .toBuffer();
+
+  if (settings.deepEnhance && isToolInstalled("noise-removal")) {
+    try {
+      const jobId = randomUUID();
+      const workspacePath = await createWorkspace(jobId);
+      const outputDir = join(workspacePath, "output");
+      await mkdir(outputDir, { recursive: true });
+      const result = await noiseRemoval(buffer, outputDir, {
+        tier: "quality",
+        strength: 35,
+        detailPreservation: 70,
+        colorNoise: 20,
+      });
+      buffer = result.buffer;
+    } catch {
+      // SCUNet unavailable -- fall back to Sharp-only result
+    }
+  }
 
   return { buffer, filename, contentType: outputFormat.contentType };
 }
