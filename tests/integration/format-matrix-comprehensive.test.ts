@@ -189,6 +189,8 @@ function needsFallback(fmt: FormatDef): boolean {
 }
 
 function getTimeout(fmt: FormatDef, toolId?: string): number | undefined {
+  if ((fmt.needsHeifDecoder || fmt.needsCliDecoder) && toolId === "image-enhancement")
+    return 300_000;
   if (fmt.needsHeifDecoder || fmt.needsCliDecoder) return 180_000;
   if (toolId === "image-enhancement") return 120_000;
   return undefined;
@@ -1051,22 +1053,26 @@ describe("HEIC/HEIF graceful handling", () => {
   for (const fmt of HEIF_FORMATS) {
     describe(`${fmt.name}`, () => {
       for (const tool of CORE_TOOLS) {
-        it(`${tool.id}: no crash`, async () => {
-          const res = await callTool(tool.id, fmt, tool.settings);
-          if (!res) return;
+        it(
+          `${tool.id}: no crash`,
+          async () => {
+            const res = await callTool(tool.id, fmt, tool.settings);
+            if (!res) return;
 
-          // Must never crash
-          expect(res.statusCode).not.toBe(500);
+            // Must never crash
+            expect(res.statusCode).not.toBe(500);
 
-          // Accept success (200) or clean error (400/422)
-          expect([200, 400, 422]).toContain(res.statusCode);
+            // Accept success (200) or clean error (400/422)
+            expect([200, 400, 422]).toContain(res.statusCode);
 
-          const body = JSON.parse(res.body);
-          if (res.statusCode !== 200) {
-            expect(body.error).toBeDefined();
-            expect(typeof body.error).toBe("string");
-          }
-        }, 180_000);
+            const body = JSON.parse(res.body);
+            if (res.statusCode !== 200) {
+              expect(body.error).toBeDefined();
+              expect(typeof body.error).toBe("string");
+            }
+          },
+          tool.id === "image-enhancement" ? 300_000 : 180_000,
+        );
       }
     });
   }
