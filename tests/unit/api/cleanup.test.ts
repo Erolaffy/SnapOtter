@@ -34,8 +34,8 @@ function removeSetting(key: string) {
 }
 
 async function waitForCleanup(): Promise<void> {
-  for (let i = 0; i < 50; i++) {
-    await new Promise((resolve) => setImmediate(resolve));
+  for (let i = 0; i < 100; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
   }
 }
 
