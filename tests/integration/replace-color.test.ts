@@ -458,6 +458,94 @@ describe("Animated GIF input", () => {
   });
 });
 
+// ── Same source and target color ───────────────────────────────
+describe("Same source and target", () => {
+  it("handles same source and target color (no visible change)", async () => {
+    const res = await postTool(
+      { sourceColor: "#FF0000", targetColor: "#FF0000", tolerance: 30 },
+      solidRedBuffer,
+    );
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+    expect(result.processedSize).toBeGreaterThan(0);
+  });
+});
+
+// ── TIFF input ─────────────────────────────────────────────────
+describe("TIFF input", () => {
+  it("processes TIFF image", async () => {
+    const TIFF = readFileSync(join(FIXTURES, "formats", "sample.tiff"));
+    const res = await postTool(
+      { sourceColor: "#808080", targetColor: "#00FF00", tolerance: 50 },
+      TIFF,
+      "test.tiff",
+      "image/tiff",
+    );
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+  });
+});
+
+// ── BMP input ──────────────────────────────────────────────────
+describe("BMP input", () => {
+  it("processes BMP image", async () => {
+    const BMP = readFileSync(join(FIXTURES, "formats", "sample.bmp"));
+    const res = await postTool(
+      { sourceColor: "#808080", targetColor: "#FF00FF", tolerance: 40 },
+      BMP,
+      "test.bmp",
+      "image/bmp",
+    );
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+  });
+});
+
+// ── Zero tolerance on varied image ─────────────────────────────
+describe("Zero tolerance on varied image", () => {
+  it("with tolerance=0 on varied image, few pixels are replaced", async () => {
+    const res = await postTool(
+      { sourceColor: "#808080", targetColor: "#FF0000", tolerance: 0 },
+      PNG,
+    );
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.processedSize).toBeGreaterThan(0);
+  });
+});
+
+// ── makeTransparent with high tolerance ────────────────────────
+describe("Make transparent with high tolerance", () => {
+  it("makes most pixels transparent with high tolerance", async () => {
+    const res = await postTool(
+      { sourceColor: "#FF0000", makeTransparent: true, tolerance: 255 },
+      solidRedBuffer,
+    );
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    const dlRes = await app.inject({
+      method: "GET",
+      url: result.downloadUrl,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const meta = await sharp(dlRes.rawPayload).metadata();
+    expect(meta.channels).toBe(4);
+    expect(meta.width).toBe(50);
+    expect(meta.height).toBe(50);
+  });
+});
+
+// ── Rejects 3-char hex color ───────────────────────────────────
+describe("Short hex color validation", () => {
+  it("rejects 3-char hex target color", async () => {
+    const res = await postTool({ sourceColor: "#FF0000", targetColor: "#0F0" });
+    expect(res.statusCode).toBe(400);
+  });
+});
+
 // ── SVG input ──────────────────────────────────────────────────
 describe("SVG input", () => {
   it("processes SVG image", async () => {

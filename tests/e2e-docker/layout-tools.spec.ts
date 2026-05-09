@@ -544,6 +544,136 @@ test.describe("Border — extended", () => {
   });
 });
 
+// ─── Collage — Output Verification ──────────────────────────────
+
+test.describe("Collage — output verification", () => {
+  test("collage output can be downloaded", async ({ request }) => {
+    const { body, contentType } = buildMultipart(
+      [
+        { name: "file", filename: "a.png", contentType: "image/png", buffer: PNG_200x150 },
+        { name: "file", filename: "b.jpg", contentType: "image/jpeg", buffer: JPG_100x100 },
+      ],
+      [
+        {
+          name: "settings",
+          value: JSON.stringify({
+            templateId: "2-h-equal",
+            width: 400,
+            outputFormat: "png",
+          }),
+        },
+      ],
+    );
+    const res = await request.post("/api/v1/tools/collage", {
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+      data: body,
+    });
+    expect(res.ok()).toBe(true);
+    const json = await res.json();
+    expect(json.downloadUrl).toBeTruthy();
+
+    // Verify the collage can be downloaded
+    const dlRes = await request.get(json.downloadUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(dlRes.ok()).toBe(true);
+    const buffer = Buffer.from(await dlRes.body());
+    expect(buffer.length).toBeGreaterThan(0);
+  });
+
+  test("collage with HEIC images", async ({ request }) => {
+    const { body, contentType } = buildMultipart(
+      [
+        { name: "file", filename: "a.heic", contentType: "image/heic", buffer: HEIC_200x150 },
+        { name: "file", filename: "b.png", contentType: "image/png", buffer: PNG_200x150 },
+      ],
+      [
+        {
+          name: "settings",
+          value: JSON.stringify({
+            templateId: "2-h-equal",
+            width: 400,
+            outputFormat: "png",
+          }),
+        },
+      ],
+    );
+    const res = await request.post("/api/v1/tools/collage", {
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+      data: body,
+    });
+    expect(res.ok()).toBe(true);
+    const json = await res.json();
+    expect(json.downloadUrl).toBeTruthy();
+  });
+});
+
+// ─── Stitch — Output Verification ───────────────────────────────
+
+test.describe("Stitch — output verification", () => {
+  test("stitched image can be downloaded", async ({ request }) => {
+    const { body, contentType } = buildMultipart(
+      [
+        { name: "file", filename: "a.png", contentType: "image/png", buffer: PNG_200x150 },
+        { name: "file", filename: "b.jpg", contentType: "image/jpeg", buffer: JPG_100x100 },
+      ],
+      [{ name: "settings", value: JSON.stringify({ direction: "horizontal", gap: 0 }) }],
+    );
+    const res = await request.post("/api/v1/tools/stitch", {
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+      data: body,
+    });
+    expect(res.ok()).toBe(true);
+    const json = await res.json();
+    expect(json.downloadUrl).toBeTruthy();
+
+    const dlRes = await request.get(json.downloadUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(dlRes.ok()).toBe(true);
+    const buffer = Buffer.from(await dlRes.body());
+    expect(buffer.length).toBeGreaterThan(0);
+  });
+});
+
+// ─── Border — Output Verification ───────────────────────────────
+
+test.describe("Border — output verification", () => {
+  test("bordered image can be downloaded and is larger", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/border", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "test.png", mimeType: "image/png", buffer: PNG_200x150 },
+        settings: JSON.stringify({ size: 20, color: "#FF0000" }),
+      },
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.downloadUrl).toBeTruthy();
+
+    // Download and verify the bordered image
+    const dlRes = await request.get(body.downloadUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(dlRes.ok()).toBe(true);
+    const buffer = Buffer.from(await dlRes.body());
+    expect(buffer.length).toBeGreaterThan(0);
+  });
+
+  test("border with minimum size (1px)", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/border", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "test.jpg", mimeType: "image/jpeg", buffer: JPG_100x100 },
+        settings: JSON.stringify({ size: 1, color: "#000000" }),
+      },
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.downloadUrl).toBeTruthy();
+  });
+});
+
 // ─── Auth Failure ──────────────────────────────────────────────────
 
 test.describe("Auth failure", () => {
@@ -563,6 +693,41 @@ test.describe("Auth failure", () => {
         file: { name: "test.png", mimeType: "image/png", buffer: PNG_200x150 },
         settings: JSON.stringify({ size: 10, color: "#ff0000" }),
       },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test("collage without token returns 401", async ({ request }) => {
+    const { body, contentType } = buildMultipart(
+      [
+        { name: "file", filename: "a.png", contentType: "image/png", buffer: PNG_200x150 },
+        { name: "file", filename: "b.jpg", contentType: "image/jpeg", buffer: JPG_100x100 },
+      ],
+      [
+        {
+          name: "settings",
+          value: JSON.stringify({ templateId: "2-h-equal", width: 400 }),
+        },
+      ],
+    );
+    const res = await request.post("/api/v1/tools/collage", {
+      headers: { "Content-Type": contentType },
+      data: body,
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test("stitch without token returns 401", async ({ request }) => {
+    const { body, contentType } = buildMultipart(
+      [
+        { name: "file", filename: "a.png", contentType: "image/png", buffer: PNG_200x150 },
+        { name: "file", filename: "b.jpg", contentType: "image/jpeg", buffer: JPG_100x100 },
+      ],
+      [{ name: "settings", value: JSON.stringify({ direction: "horizontal" }) }],
+    );
+    const res = await request.post("/api/v1/tools/stitch", {
+      headers: { "Content-Type": contentType },
+      data: body,
     });
     expect(res.status()).toBe(401);
   });

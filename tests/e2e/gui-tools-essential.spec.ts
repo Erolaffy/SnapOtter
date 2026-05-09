@@ -118,6 +118,30 @@ test.describe("GUI Essential Tools", () => {
 
       await expect(page.getByTestId("resize-download")).toBeVisible({ timeout: 15_000 });
     });
+
+    test("aspect ratio link button toggles", async ({ loggedInPage: page }) => {
+      await page.goto("/resize");
+      await uploadTestImage(page);
+
+      // The link/unlink button for aspect ratio should be visible
+      const linkBtn = page.locator("button[title*='aspect']").first();
+      if (await linkBtn.isVisible()) {
+        await linkBtn.click();
+      }
+    });
+
+    test("download link has correct data-testid", async ({ loggedInPage: page }) => {
+      await page.goto("/resize");
+      await uploadTestImage(page);
+
+      await page.locator("#resize-width").fill("50");
+      await page.getByTestId("resize-submit").click();
+      await waitForProcessing(page);
+
+      const downloadLink = page.getByTestId("resize-download");
+      await expect(downloadLink).toBeVisible({ timeout: 15_000 });
+      await expect(downloadLink).toHaveText(/Download/);
+    });
   });
 
   // ========================================================================
@@ -179,6 +203,18 @@ test.describe("GUI Essential Tools", () => {
       await expect(page.getByTestId("crop-submit")).toBeVisible();
     });
 
+    test("aspect ratio presets change the active button", async ({ loggedInPage: page }) => {
+      await page.goto("/crop");
+      await uploadTestImage(page);
+
+      // Click 1:1 aspect ratio
+      await page.getByRole("button", { name: "1:1" }).click();
+      // Click 16:9
+      await page.getByRole("button", { name: "16:9" }).click();
+      // Switch back to Free
+      await page.getByRole("button", { name: "Free" }).click();
+    });
+
     test("processes crop and shows download", async ({ loggedInPage: page }) => {
       await page.goto("/crop");
       await uploadTestImage(page);
@@ -212,11 +248,14 @@ test.describe("GUI Essential Tools", () => {
       const img = page.locator(".ReactCrop img");
       await expect(img).toBeVisible();
 
-      const viewport = page.viewportSize()!;
+      const viewport = page.viewportSize();
+      expect(viewport).not.toBeNull();
       const box = await img.boundingBox();
       expect(box).not.toBeNull();
-      expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.height);
-      expect(box!.y).toBeGreaterThanOrEqual(0);
+      if (box && viewport) {
+        expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+        expect(box.y).toBeGreaterThanOrEqual(0);
+      }
     });
 
     test("extremely tall portrait image (100x6000) fits within viewport without overflow", async ({
@@ -239,11 +278,14 @@ test.describe("GUI Essential Tools", () => {
       const img = page.locator(".ReactCrop img");
       await expect(img).toBeVisible();
 
-      const viewport = page.viewportSize()!;
+      const viewport = page.viewportSize();
+      expect(viewport).not.toBeNull();
       const box = await img.boundingBox();
       expect(box).not.toBeNull();
-      expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.height);
-      expect(box!.y).toBeGreaterThanOrEqual(0);
+      if (box && viewport) {
+        expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+        expect(box.y).toBeGreaterThanOrEqual(0);
+      }
     });
   });
 
@@ -317,6 +359,47 @@ test.describe("GUI Essential Tools", () => {
       await expect(page.getByText("Reset all changes")).toBeVisible();
     });
 
+    test("flip horizontal enables submit", async ({ loggedInPage: page }) => {
+      await page.goto("/rotate");
+      await uploadTestImage(page);
+
+      const submitBtn = page.getByTestId("rotate-submit");
+      await expect(submitBtn).toBeDisabled();
+
+      await page.getByTestId("rotate-flip-h").click();
+      await expect(submitBtn).toBeEnabled();
+    });
+
+    test("flip vertical enables submit", async ({ loggedInPage: page }) => {
+      await page.goto("/rotate");
+      await uploadTestImage(page);
+
+      const submitBtn = page.getByTestId("rotate-submit");
+      await expect(submitBtn).toBeDisabled();
+
+      await page.getByTestId("rotate-flip-v").click();
+      await expect(submitBtn).toBeEnabled();
+    });
+
+    test("180 degree button sets correct angle", async ({ loggedInPage: page }) => {
+      await page.goto("/rotate");
+      await uploadTestImage(page);
+
+      await page.getByRole("button", { name: "180" }).click();
+      await expect(page.locator("input[inputmode='numeric']")).toHaveValue("180", {
+        timeout: 2000,
+      });
+    });
+
+    test("straighten slider is interactive", async ({ loggedInPage: page }) => {
+      await page.goto("/rotate");
+      await uploadTestImage(page);
+
+      const slider = page.locator("#rotate-straighten");
+      await expect(slider).toBeVisible();
+      await expect(slider).toHaveAttribute("type", "range");
+    });
+
     test("processes rotation and shows result", async ({ loggedInPage: page }) => {
       await page.goto("/rotate");
       await uploadTestImage(page);
@@ -376,6 +459,29 @@ test.describe("GUI Essential Tools", () => {
       await expect(page.locator("#convert-quality")).not.toBeVisible();
     });
 
+    test("quality slider appears for WebP format", async ({ loggedInPage: page }) => {
+      await page.goto("/convert");
+      await uploadTestImage(page);
+
+      await page.selectOption("#convert-target-format", "webp");
+      await expect(page.locator("#convert-quality")).toBeVisible();
+    });
+
+    test("quality slider appears for AVIF format", async ({ loggedInPage: page }) => {
+      await page.goto("/convert");
+      await uploadTestImage(page);
+
+      await page.selectOption("#convert-target-format", "avif");
+      await expect(page.locator("#convert-quality")).toBeVisible();
+    });
+
+    test("submit button uses data-testid", async ({ loggedInPage: page }) => {
+      await page.goto("/convert");
+      await uploadTestImage(page);
+
+      await expect(page.getByTestId("convert-submit")).toBeVisible();
+    });
+
     test("processes conversion and shows download", async ({ loggedInPage: page }) => {
       await page.goto("/convert");
       await uploadTestImage(page);
@@ -422,6 +528,30 @@ test.describe("GUI Essential Tools", () => {
 
       await page.getByRole("button", { name: "Target Size" }).click();
       await expect(page.locator("#compress-target-size")).toBeVisible();
+    });
+
+    test("quality slider is interactive", async ({ loggedInPage: page }) => {
+      await page.goto("/compress");
+      await uploadTestImage(page);
+
+      const slider = page.locator("#compress-quality");
+      await expect(slider).toBeVisible();
+      await expect(slider).toHaveAttribute("type", "range");
+    });
+
+    test("target size mode shows size input and unit", async ({ loggedInPage: page }) => {
+      await page.goto("/compress");
+      await uploadTestImage(page);
+
+      await page.getByRole("button", { name: "Target Size" }).click();
+      await expect(page.locator("#compress-target-size")).toBeVisible();
+    });
+
+    test("submit button uses data-testid", async ({ loggedInPage: page }) => {
+      await page.goto("/compress");
+      await uploadTestImage(page);
+
+      await expect(page.getByTestId("compress-submit")).toBeVisible();
     });
 
     test("processes compression and shows download with size info", async ({

@@ -8,14 +8,14 @@ const USERNAME = "admin";
 const PASSWORD = "qFIJS2KcQ0NuUfZ0";
 const IMG = "C:/Users/siddh/Downloads/passport-photo-sample-correct.webp";
 
-import { readFileSync, writeFileSync } from "fs";
+import { readFileSync } from "node:fs";
 
 const results = [];
 let token = "";
 
 function log(tool, status, detail = "") {
   const icon = status === "PASS" ? "\u2713" : status === "FAIL" ? "\u2717" : "-";
-  const line = `${icon} [${status}] ${tool}${detail ? " -- " + detail : ""}`;
+  const line = `${icon} [${status}] ${tool}${detail ? ` -- ${detail}` : ""}`;
   console.log(line);
   results.push({ tool, status, detail });
 }
@@ -278,7 +278,11 @@ async function main() {
   // ════════════════════════════════════════════════════════════════
   console.log("\n--- SPECIAL TOOLS (may need specific inputs) ---\n");
 
-  await test("QR Generate", "qr-generate", { text: "https://snapotter.app", size: 512, format: "png" });
+  await test("QR Generate", "qr-generate", {
+    text: "https://snapotter.app",
+    size: 512,
+    format: "png",
+  });
   await test("Text Overlay", "text-overlay", {
     text: "TEST",
     fontSize: 48,
@@ -306,15 +310,18 @@ async function main() {
     console.log("FAILURES:");
     for (const r of failed) {
       // Truncate long error messages
-      const detail = r.detail.length > 150 ? r.detail.slice(0, 150) + "..." : r.detail;
+      const detail = r.detail.length > 150 ? `${r.detail.slice(0, 150)}...` : r.detail;
       console.log(`  \u2717 ${r.tool}: ${detail}`);
     }
   }
 
   // Check GPU usage in docker logs
   console.log("\n--- GPU USAGE CHECK ---\n");
-  const { execSync } = await import("child_process");
-  const logs = execSync("docker logs SnapOtter 2>&1", { encoding: "utf-8", maxBuffer: 1024 * 1024 });
+  const { execSync } = await import("node:child_process");
+  const logs = execSync("docker logs SnapOtter 2>&1", {
+    encoding: "utf-8",
+    maxBuffer: 1024 * 1024,
+  });
   const gpuLines = logs
     .split("\n")
     .filter(
@@ -327,7 +334,7 @@ async function main() {
         l.includes("CUDAExecution"),
     );
   for (const line of gpuLines.slice(0, 15)) {
-    console.log("  " + line.trim().slice(0, 120));
+    console.log(`  ${line.trim().slice(0, 120)}`);
   }
 
   // Check for any fallback warnings
@@ -346,7 +353,7 @@ async function main() {
     console.log("  None detected - no silent fallbacks occurred.");
   } else {
     for (const line of warnLines) {
-      console.log("  WARNING: " + line.trim().slice(0, 150));
+      console.log(`  WARNING: ${line.trim().slice(0, 150)}`);
     }
   }
 

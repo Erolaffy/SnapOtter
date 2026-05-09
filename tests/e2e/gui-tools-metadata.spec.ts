@@ -165,6 +165,23 @@ test.describe("GUI Metadata Tools", () => {
       await page.fill('[id="em-artist"]', "Modified Artist");
       await expect(page.getByText(/\d+ changes:/)).toBeVisible();
     });
+
+    test("shows copyright and description fields", async ({ loggedInPage: page }) => {
+      await page.goto("/edit-metadata");
+      await uploadTestImage(page);
+      await page.waitForSelector('[id="em-artist"]', { timeout: 10_000 });
+
+      await expect(page.locator("#em-copyright")).toBeVisible();
+      await expect(page.locator("#em-description")).toBeVisible();
+    });
+
+    test("submit button uses data-testid", async ({ loggedInPage: page }) => {
+      await page.goto("/edit-metadata");
+      await uploadTestImage(page);
+      await page.waitForSelector('[id="em-artist"]', { timeout: 10_000 });
+
+      await expect(page.getByTestId("edit-metadata-submit")).toBeVisible();
+    });
   });
 
   // ========================================================================

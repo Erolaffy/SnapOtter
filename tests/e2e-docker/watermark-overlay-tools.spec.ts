@@ -539,6 +539,160 @@ test.describe("Compose — extended", () => {
   });
 });
 
+// ─── Watermark Text — All Positions ──────────────────────────────
+
+test.describe("Watermark Text — all positions", () => {
+  const positions = [
+    "top-left",
+    "top-right",
+    "bottom-left",
+    "bottom-right",
+    "center",
+    "tiled",
+  ] as const;
+
+  for (const position of positions) {
+    test(`watermark at ${position} position`, async ({ request }) => {
+      const res = await request.post("/api/v1/tools/watermark-text", {
+        headers: { Authorization: `Bearer ${token}` },
+        multipart: {
+          file: { name: "test.png", mimeType: "image/png", buffer: PNG_200x150 },
+          settings: JSON.stringify({
+            text: `POS-${position}`,
+            fontSize: 16,
+            color: "#333333",
+            opacity: 60,
+            position,
+          }),
+        },
+      });
+      expect(res.ok(), `watermark at ${position} should succeed`).toBe(true);
+      const body = await res.json();
+      expect(body.downloadUrl).toBeTruthy();
+    });
+  }
+});
+
+// ─── Watermark Image — Tiled ────────────────────────────────────
+
+test.describe("Watermark Image — tiled", () => {
+  test("tiled image watermark", async ({ request }) => {
+    const { body, contentType } = buildMultipart(
+      [
+        { name: "file", filename: "main.jpg", contentType: "image/jpeg", buffer: JPG_SAMPLE },
+        {
+          name: "watermark",
+          filename: "wm.png",
+          contentType: "image/png",
+          buffer: WEBP_50x50,
+        },
+      ],
+      [
+        {
+          name: "settings",
+          value: JSON.stringify({ position: "tiled", opacity: 15, scale: 10 }),
+        },
+      ],
+    );
+    const res = await request.post("/api/v1/tools/watermark-image", {
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+      data: body,
+    });
+    expect(res.ok()).toBe(true);
+    const json = await res.json();
+    expect(json.downloadUrl).toBeTruthy();
+  });
+});
+
+// ─── Compose — Different Format Combos ──────────────────────────
+
+test.describe("Compose — format combinations", () => {
+  test("compose HEIC base with PNG overlay", async ({ request }) => {
+    const { body, contentType } = buildMultipart(
+      [
+        { name: "file", filename: "base.heic", contentType: "image/heic", buffer: HEIC_200x150 },
+        {
+          name: "overlay",
+          filename: "overlay.png",
+          contentType: "image/png",
+          buffer: PNG_200x150,
+        },
+      ],
+      [{ name: "settings", value: JSON.stringify({ x: 0, y: 0, opacity: 50 }) }],
+    );
+    const res = await request.post("/api/v1/tools/compose", {
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+      data: body,
+    });
+    expect(res.ok()).toBe(true);
+    const json = await res.json();
+    expect(json.downloadUrl).toBeTruthy();
+  });
+
+  test("compose WebP base with JPEG overlay", async ({ request }) => {
+    const { body, contentType } = buildMultipart(
+      [
+        { name: "file", filename: "base.webp", contentType: "image/webp", buffer: WEBP_50x50 },
+        {
+          name: "overlay",
+          filename: "overlay.jpg",
+          contentType: "image/jpeg",
+          buffer: JPG_100x100,
+        },
+      ],
+      [{ name: "settings", value: JSON.stringify({ x: 0, y: 0, opacity: 80 }) }],
+    );
+    const res = await request.post("/api/v1/tools/compose", {
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+      data: body,
+    });
+    expect(res.ok()).toBe(true);
+    const json = await res.json();
+    expect(json.downloadUrl).toBeTruthy();
+  });
+});
+
+// ─── Text Overlay — Validation ──────────────────────────────────
+
+test.describe("Text Overlay — validation", () => {
+  test("text overlay with multiline text", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/text-overlay", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "test.png", mimeType: "image/png", buffer: PNG_200x150 },
+        settings: JSON.stringify({
+          text: "Line 1\nLine 2\nLine 3",
+          fontSize: 20,
+          color: "#FFFFFF",
+          position: "center",
+        }),
+      },
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.downloadUrl).toBeTruthy();
+  });
+
+  test("text overlay with shadow effect", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/text-overlay", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "sample.jpg", mimeType: "image/jpeg", buffer: JPG_SAMPLE },
+        settings: JSON.stringify({
+          text: "Shadow Caption",
+          fontSize: 40,
+          color: "#FFFFFF",
+          position: "bottom",
+          shadow: true,
+        }),
+      },
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.downloadUrl).toBeTruthy();
+  });
+});
+
 // ─── Auth Failure ──────────────────────────────────────────────────
 
 test.describe("Auth failure", () => {
@@ -574,6 +728,46 @@ test.describe("Auth failure", () => {
     const res = await request.post("/api/v1/tools/compose", {
       headers: { "Content-Type": contentType },
       data: body,
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test("watermark-image without token returns 401", async ({ request }) => {
+    const { body, contentType } = buildMultipart(
+      [
+        { name: "file", filename: "main.png", contentType: "image/png", buffer: PNG_200x150 },
+        {
+          name: "watermark",
+          filename: "wm.jpg",
+          contentType: "image/jpeg",
+          buffer: JPG_100x100,
+        },
+      ],
+      [
+        {
+          name: "settings",
+          value: JSON.stringify({ position: "center", opacity: 50, scale: 25 }),
+        },
+      ],
+    );
+    const res = await request.post("/api/v1/tools/watermark-image", {
+      headers: { "Content-Type": contentType },
+      data: body,
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test("text-overlay without token returns 401", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/text-overlay", {
+      multipart: {
+        file: { name: "test.png", mimeType: "image/png", buffer: PNG_200x150 },
+        settings: JSON.stringify({
+          text: "No Auth",
+          fontSize: 24,
+          color: "#000000",
+          position: "center",
+        }),
+      },
     });
     expect(res.status()).toBe(401);
   });

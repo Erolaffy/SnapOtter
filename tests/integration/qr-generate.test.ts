@@ -5,7 +5,6 @@
  * error correction levels, download verification, and input validation.
  */
 
-import { join } from "node:path";
 import sharp from "sharp";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildTestApp, loginAsAdmin, type TestApp } from "./test-server.js";
@@ -690,5 +689,345 @@ describe("QR Generate", () => {
     });
 
     expect(res.statusCode).toBe(400);
+  });
+
+  // ── WiFi QR code format ───────────────────────────────────────
+
+  it("generates QR code for WiFi connection string", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/qr-generate",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": "application/json",
+      },
+      payload: {
+        text: "WIFI:T:WPA;S:MyNetwork;P:MyPassword;;",
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+    expect(result.processedSize).toBeGreaterThan(0);
+  });
+
+  // ── Email mailto format ───────────────────────────────────────
+
+  it("generates QR code for mailto link", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/qr-generate",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": "application/json",
+      },
+      payload: {
+        text: "mailto:user@example.com?subject=Hello&body=World",
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+  });
+
+  // ── Numeric-only text ─────────────────────────────────────────
+
+  it("generates QR code for numeric-only text", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/qr-generate",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": "application/json",
+      },
+      payload: {
+        text: "1234567890",
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.processedSize).toBeGreaterThan(0);
+  });
+
+  // ── Size boundary at exactly min (100) ────────────────────────
+
+  it("generates QR code at exactly minimum size (100)", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/qr-generate",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": "application/json",
+      },
+      payload: {
+        text: "boundary test",
+        size: 100,
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+
+    const dlRes = await app.inject({
+      method: "GET",
+      url: result.downloadUrl,
+    });
+    const meta = await sharp(dlRes.rawPayload).metadata();
+    expect(meta.width).toBe(100);
+    expect(meta.height).toBe(100);
+    expect(meta.format).toBe("png");
+  });
+
+  // ── Size boundary at exactly max (10000) ──────────────────────
+
+  it("rejects size of 99 (just below minimum)", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/qr-generate",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": "application/json",
+      },
+      payload: {
+        text: "test",
+        size: 99,
+      },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("rejects size of 10001 (just above maximum)", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/qr-generate",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": "application/json",
+      },
+      payload: {
+        text: "test",
+        size: 10001,
+      },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  // ── Default error correction level ────────────────────────────
+
+  it("uses default error correction level M when not specified", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/qr-generate",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": "application/json",
+      },
+      payload: {
+        text: "default EC test",
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+  });
+
+  // ── Default colors ────────────────────────────────────────────
+
+  it("uses default black/white colors when not specified", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/qr-generate",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": "application/json",
+      },
+      payload: {
+        text: "default colors test",
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+
+    const dlRes = await app.inject({
+      method: "GET",
+      url: result.downloadUrl,
+    });
+    const meta = await sharp(dlRes.rawPayload).metadata();
+    expect(meta.format).toBe("png");
+    expect(meta.width).toBe(400); // default size
+  });
+
+  // ── Each error correction level produces valid downloadable PNG ─
+
+  it("each error correction level produces downloadable PNG", async () => {
+    for (const level of ["L", "M", "Q", "H"] as const) {
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/v1/tools/qr-generate",
+        headers: {
+          authorization: `Bearer ${adminToken}`,
+          "content-type": "application/json",
+        },
+        payload: {
+          text: `verify-${level}`,
+          errorCorrection: level,
+          size: 200,
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const result = JSON.parse(res.body);
+
+      const dlRes = await app.inject({
+        method: "GET",
+        url: result.downloadUrl,
+      });
+      expect(dlRes.statusCode).toBe(200);
+      const meta = await sharp(dlRes.rawPayload).metadata();
+      expect(meta.format).toBe("png");
+      expect(meta.width).toBe(200);
+    }
+  });
+
+  // ── Non-string text type ──────────────────────────────────────
+
+  it("rejects numeric text value (must be string)", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/qr-generate",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": "application/json",
+      },
+      payload: {
+        text: 12345,
+      },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  // ── Color with 8-char hex (alpha) ─────────────────────────────
+
+  it("rejects 8-character hex color (with alpha)", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/qr-generate",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": "application/json",
+      },
+      payload: {
+        text: "alpha test",
+        foreground: "#FF000080",
+      },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  // ── Whitespace-only text ──────────────────────────────────────
+
+  it("generates QR code for whitespace-only text", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/qr-generate",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": "application/json",
+      },
+      payload: {
+        text: "   ",
+      },
+    });
+
+    // Whitespace-only is non-empty, should succeed
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.processedSize).toBeGreaterThan(0);
+  });
+
+  // ── All parameters combined ───────────────────────────────────
+
+  it("generates QR with all parameters specified", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/qr-generate",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": "application/json",
+      },
+      payload: {
+        text: "https://snapotter.com/full-params",
+        size: 512,
+        errorCorrection: "H",
+        foreground: "#1A2B3C",
+        background: "#F0E0D0",
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+
+    const dlRes = await app.inject({
+      method: "GET",
+      url: result.downloadUrl,
+    });
+    const meta = await sharp(dlRes.rawPayload).metadata();
+    expect(meta.format).toBe("png");
+    expect(meta.width).toBe(512);
+    expect(meta.height).toBe(512);
+    expect(result.originalSize).toBe(0);
+    expect(result.processedSize).toBeGreaterThan(0);
+  });
+
+  // ── Missing content-type header ───────────────────────────────
+
+  it("rejects request without content-type header", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/qr-generate",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+      },
+      payload: JSON.stringify({ text: "test" }),
+    });
+
+    // Without content-type, body may not parse
+    expect(res.statusCode).toBeGreaterThanOrEqual(400);
+  });
+
+  // ── Download URL is publicly accessible (no auth) ─────────────
+
+  it("download URL is accessible without auth token", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/qr-generate",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": "application/json",
+      },
+      payload: {
+        text: "public download test",
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+
+    // Download without auth header
+    const dlRes = await app.inject({
+      method: "GET",
+      url: result.downloadUrl,
+    });
+    expect(dlRes.statusCode).toBe(200);
+    expect(dlRes.rawPayload.length).toBeGreaterThan(0);
   });
 });

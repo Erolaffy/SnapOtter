@@ -7,7 +7,7 @@ const uploadConfig = vi.hoisted(() => ({
 
 vi.mock("../../../apps/api/src/config.js", () => ({ env: uploadConfig }));
 
-const mockStaticRegister = vi.fn().mockResolvedValue(undefined);
+const _mockStaticRegister = vi.fn().mockResolvedValue(undefined);
 vi.mock("@fastify/static", () => ({ default: "fastify-static-plugin" }));
 
 const mockMultipartPlugin = vi.fn();
@@ -64,7 +64,7 @@ describe("registerStatic", () => {
     await registerStatic(app as never);
 
     const reply = { code: vi.fn().mockReturnThis(), send: vi.fn(), sendFile: vi.fn() };
-    notFoundHandler!({ url: "/api/v1/tools" }, reply);
+    notFoundHandler?.({ url: "/api/v1/tools" }, reply);
     expect(reply.code).toHaveBeenCalledWith(404);
     expect(reply.send).toHaveBeenCalledWith({ error: "Not found", code: "NOT_FOUND" });
   });
@@ -83,7 +83,7 @@ describe("registerStatic", () => {
     await registerStatic(app as never);
 
     const reply = { code: vi.fn().mockReturnThis(), send: vi.fn(), sendFile: vi.fn() };
-    notFoundHandler!({ url: "/resize" }, reply);
+    notFoundHandler?.({ url: "/resize" }, reply);
     expect(reply.sendFile).toHaveBeenCalledWith("index.html");
   });
 

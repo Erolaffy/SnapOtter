@@ -48,7 +48,7 @@ test.describe("Cross-browser smoke tests", () => {
     expect(errors).toHaveLength(0);
   });
 
-  test("resize E2E: upload, set dimensions, verify settings", async ({ loggedInPage: page }) => {
+  test("resize E2E: upload, set dimensions, process, download", async ({ loggedInPage: page }) => {
     const errors = collectConsoleErrors(page);
 
     await page.goto("/resize");
@@ -65,6 +65,118 @@ test.describe("Cross-browser smoke tests", () => {
     await widthInput.fill("200");
 
     await waitForProcessing(page);
+
+    // Verify a download button or link is available after processing
+    const downloadBtn = page.getByRole("button", { name: /download/i }).first();
+    const downloadLink = page.getByRole("link", { name: /download/i }).first();
+    const hasDownloadBtn = await downloadBtn.isVisible({ timeout: 5000 }).catch(() => false);
+    const hasDownloadLink = await downloadLink.isVisible({ timeout: 2000 }).catch(() => false);
+    expect(hasDownloadBtn || hasDownloadLink).toBe(true);
+
+    expect(errors).toHaveLength(0);
+  });
+
+  test("before-after slider drag: upload to compress, drag slider", async ({
+    loggedInPage: page,
+  }) => {
+    const errors = collectConsoleErrors(page);
+
+    await page.goto("/compress");
+    await page.waitForLoadState("networkidle");
+
+    // Upload and wait for processing to produce the before-after view
+    await uploadImage(page);
+    await waitForProcessing(page);
+    await page.waitForTimeout(1000);
+
+    // Locate the before-after slider container for drag interaction
+    const sliderContainer = page.locator("[class*='before-after'], [class*='BeforeAfter']").first();
+
+    // Even if the exact slider handle class differs, verify the container rendered
+    const containerVisible = await sliderContainer.isVisible({ timeout: 10000 }).catch(() => false);
+
+    if (containerVisible) {
+      // Drag the slider from center to the left quarter
+      const box = await sliderContainer.boundingBox();
+      if (box) {
+        const startX = box.x + box.width / 2;
+        const startY = box.y + box.height / 2;
+        const endX = box.x + box.width * 0.25;
+
+        await page.mouse.move(startX, startY);
+        await page.mouse.down();
+        await page.mouse.move(endX, startY, { steps: 10 });
+        await page.mouse.up();
+        await page.waitForTimeout(300);
+      }
+    }
+
+    // Verify no CSS layout breakage -- the container should still be visible
+    if (containerVisible) {
+      await expect(sliderContainer).toBeVisible();
+    }
+
+    expect(errors).toHaveLength(0);
+  });
+
+  test("keyboard shortcuts: Cmd/Ctrl+K and Cmd/Ctrl+Shift+D", async ({ loggedInPage: page }) => {
+    const errors = collectConsoleErrors(page);
+    await page.waitForLoadState("networkidle");
+
+    // ---- Cmd/Ctrl+K: focus search bar ----
+    const searchInput = page.getByPlaceholder(/search/i).first();
+    await expect(searchInput).toBeVisible();
+
+    await page.keyboard.press(`${MOD}+k`);
+    await expect(searchInput).toBeFocused();
+
+    // Click elsewhere to blur
+    await page.locator("body").click();
+    await page.waitForTimeout(200);
+
+    // ---- Cmd/Ctrl+Shift+D: toggle dark mode ----
+    const hadDarkBefore = await page.evaluate(() =>
+      document.documentElement.classList.contains("dark"),
+    );
+
+    await page.keyboard.press(`${MOD}+Shift+d`);
+    await page.waitForTimeout(300);
+
+    const hasDarkAfter = await page.evaluate(() =>
+      document.documentElement.classList.contains("dark"),
+    );
+
+    expect(hasDarkAfter).not.toBe(hadDarkBefore);
+
+    // Toggle back
+    await page.keyboard.press(`${MOD}+Shift+d`);
+    await page.waitForTimeout(300);
+
+    const hasDarkFinal = await page.evaluate(() =>
+      document.documentElement.classList.contains("dark"),
+    );
+    expect(hasDarkFinal).toBe(hadDarkBefore);
+
+    expect(errors).toHaveLength(0);
+  });
+
+  test("settings dialog: open, switch tabs, close", async ({ loggedInPage: page }) => {
+    const errors = collectConsoleErrors(page);
+    await page.waitForLoadState("networkidle");
+
+    await openSettings(page);
+
+    await page.getByRole("button", { name: "About" }).click();
+    await page.waitForTimeout(300);
+    await expect(page.getByText(/about/i).first()).toBeVisible();
+
+    await page.getByRole("button", { name: "Security" }).click();
+    await page.waitForTimeout(300);
+    await expect(page.getByText(/security/i).first()).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(300);
+    await expect(page.getByRole("heading", { name: "General" })).not.toBeVisible();
 
     expect(errors).toHaveLength(0);
   });
@@ -101,37 +213,41 @@ test.describe("Cross-browser smoke tests", () => {
     expect(errors).toHaveLength(0);
   });
 
-  test("settings dialog: open, switch tabs, close", async ({ loggedInPage: page }) => {
+  test("pipeline builder: add steps, upload file, process", async ({ loggedInPage: page }) => {
     const errors = collectConsoleErrors(page);
+
+    await page.goto("/automate");
     await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(500);
 
-    await openSettings(page);
+    // Verify pipeline page loaded
+    await expect(page.getByText(/pipeline|automate/i).first()).toBeVisible();
 
-    await page.getByRole("button", { name: "About" }).click();
+    // Add a resize step
+    const resizeBtn = page.getByRole("button", { name: /resize/i }).first();
+    await resizeBtn.click();
     await page.waitForTimeout(300);
-    await expect(page.getByText(/about/i).first()).toBeVisible();
 
-    await page.getByRole("button", { name: "Security" }).click();
+    // Add a compress step
+    const compressBtn = page.getByRole("button", { name: /compress/i }).first();
+    await compressBtn.click();
     await page.waitForTimeout(300);
-    await expect(page.getByText(/security/i).first()).toBeVisible();
 
-    await page.keyboard.press("Escape");
-    await page.waitForTimeout(300);
-    await expect(page.getByRole("heading", { name: "General" })).not.toBeVisible();
+    // Verify both steps are visible in the pipeline
+    const steps = page.locator("[class*='step'], [class*='pipeline-step']");
+    const stepCount = await steps.count();
+    expect(stepCount).toBeGreaterThanOrEqual(2);
 
-    expect(errors).toHaveLength(0);
-  });
+    // Upload a file
+    await uploadImage(page);
 
-  test("keyboard shortcut: Cmd/Ctrl+K focuses search bar", async ({ loggedInPage: page }) => {
-    const errors = collectConsoleErrors(page);
-    await page.waitForLoadState("networkidle");
-
-    const searchInput = page.getByPlaceholder(/search/i).first();
-    await expect(searchInput).toBeVisible();
-
-    await page.keyboard.press(`${MOD}+k`);
-
-    await expect(searchInput).toBeFocused();
+    // Trigger processing if there is a process/run button
+    const processBtn = page.getByRole("button", { name: /process|run|start/i }).first();
+    const hasProcBtn = await processBtn.isVisible({ timeout: 3000 }).catch(() => false);
+    if (hasProcBtn) {
+      await processBtn.click();
+      await waitForProcessing(page);
+    }
 
     expect(errors).toHaveLength(0);
   });

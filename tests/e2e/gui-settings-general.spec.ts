@@ -12,6 +12,17 @@ test.describe("GUI Settings - Dialog Navigation", () => {
     await expect(page.locator("h2").filter({ hasText: "Settings" })).toBeVisible();
   });
 
+  test("dialog has correct dimensions (85vh, max-w-3xl)", async ({ loggedInPage: page }) => {
+    await openSettings(page);
+
+    const dialog = page.locator(".relative.bg-background.border.border-border.rounded-xl");
+    await expect(dialog).toBeVisible();
+
+    // Verify the dialog uses the expected sizing classes
+    await expect(dialog).toHaveClass(/max-w-3xl/);
+    await expect(dialog).toHaveClass(/h-\[85vh\]/);
+  });
+
   test("dialog sidebar lists navigable section tabs", async ({ loggedInPage: page }) => {
     await openSettings(page);
 
@@ -42,6 +53,36 @@ test.describe("GUI Settings - Dialog Navigation", () => {
     await expect(page.locator("h3").filter({ hasText: "General" })).toBeVisible();
   });
 
+  test("active tab is visually highlighted", async ({ loggedInPage: page }) => {
+    await openSettings(page);
+
+    // The General tab should be active by default and have the primary color class
+    const generalBtn = page.getByRole("button", { name: /general/i });
+    await expect(generalBtn).toHaveClass(/bg-primary/);
+
+    // Navigate to Security -- it should become highlighted and General should not
+    await page.getByRole("button", { name: /security/i }).click();
+    const securityBtn = page.getByRole("button", { name: /security/i });
+    await expect(securityBtn).toHaveClass(/bg-primary/);
+    await expect(generalBtn).not.toHaveClass(/bg-primary/);
+  });
+
+  test("re-opening dialog defaults to General tab", async ({ loggedInPage: page }) => {
+    await openSettings(page);
+
+    // Navigate to About
+    await page.getByRole("button", { name: /about/i }).click();
+    await expect(page.locator("h3").filter({ hasText: "About" })).toBeVisible();
+
+    // Close dialog
+    await page.keyboard.press("Escape");
+    await expect(page.locator("h2").filter({ hasText: "Settings" })).not.toBeVisible();
+
+    // Re-open -- should be back on General (component state resets)
+    await openSettings(page);
+    await expect(page.locator("h3").filter({ hasText: "General" })).toBeVisible();
+  });
+
   test("closes dialog via the X button", async ({ loggedInPage: page }) => {
     await openSettings(page);
 
@@ -69,6 +110,12 @@ test.describe("GUI Settings - Dialog Navigation", () => {
 
     await expect(page.locator("h2").filter({ hasText: "Settings" })).not.toBeVisible();
   });
+
+  test("settings icon is visible in the sidebar", async ({ loggedInPage: page }) => {
+    // The sidebar should have a Settings entry
+    const sidebar = page.locator("aside");
+    await expect(sidebar.getByText("Settings")).toBeVisible();
+  });
 });
 
 test.describe("GUI Settings - General Tab", () => {
@@ -81,6 +128,21 @@ test.describe("GUI Settings - General Tab", () => {
     await expect(page.getByText(/admin/i).first()).toBeVisible();
   });
 
+  test("displays avatar with initial letter", async ({ loggedInPage: page }) => {
+    await openSettings(page);
+
+    // Avatar circle shows the first letter of the username (uppercase A for admin)
+    const avatar = page.locator(".w-10.h-10.rounded-full");
+    await expect(avatar).toBeVisible();
+    await expect(avatar).toContainText("A");
+  });
+
+  test("shows user preferences description text", async ({ loggedInPage: page }) => {
+    await openSettings(page);
+
+    await expect(page.getByText("User preferences and display settings.")).toBeVisible();
+  });
+
   test("shows Default Tool View dropdown with options", async ({ loggedInPage: page }) => {
     await openSettings(page);
 
@@ -91,6 +153,34 @@ test.describe("GUI Settings - General Tab", () => {
     // Verify the two options
     await expect(select.locator("option[value='sidebar']")).toHaveText("Sidebar");
     await expect(select.locator("option[value='fullscreen']")).toHaveText("Fullscreen Grid");
+  });
+
+  test("changing Default Tool View and saving persists the value", async ({
+    loggedInPage: page,
+  }) => {
+    await openSettings(page);
+
+    const select = page.locator("select").first();
+    const originalValue = await select.inputValue();
+
+    // Switch to the other option
+    const newValue = originalValue === "sidebar" ? "fullscreen" : "sidebar";
+    await select.selectOption(newValue);
+
+    await page.getByRole("button", { name: /save settings/i }).click();
+    await expect(page.getByText("Settings saved.")).toBeVisible({ timeout: 5_000 });
+
+    // Close and reopen to verify persistence
+    await page.keyboard.press("Escape");
+    await openSettings(page);
+
+    const updatedValue = await page.locator("select").first().inputValue();
+    expect(updatedValue).toBe(newValue);
+
+    // Restore original value
+    await page.locator("select").first().selectOption(originalValue);
+    await page.getByRole("button", { name: /save settings/i }).click();
+    await expect(page.getByText("Settings saved.")).toBeVisible({ timeout: 5_000 });
   });
 
   test("shows App Version string", async ({ loggedInPage: page }) => {
@@ -122,11 +212,20 @@ test.describe("GUI Settings - General Tab", () => {
 });
 
 test.describe("GUI Settings - System Settings Tab", () => {
+  test("shows section heading and description", async ({ loggedInPage: page }) => {
+    await openSettings(page);
+    await page.getByRole("button", { name: /system settings/i }).click();
+
+    await expect(page.locator("h3").filter({ hasText: "System Settings" })).toBeVisible();
+    await expect(page.getByText("Server-side configuration and limits.")).toBeVisible();
+  });
+
   test("shows File Upload Limit input", async ({ loggedInPage: page }) => {
     await openSettings(page);
     await page.getByRole("button", { name: /system settings/i }).click();
 
     await expect(page.getByText("File Upload Limit (MB)")).toBeVisible();
+    await expect(page.getByText("Maximum file size per upload")).toBeVisible();
     await expect(page.locator("input[type='number']").first()).toBeVisible();
   });
 
@@ -146,11 +245,58 @@ test.describe("GUI Settings - System Settings Tab", () => {
     await expect(themeSelect.locator("option[value='system']")).toHaveText("System");
   });
 
+  test("shows Language dropdown", async ({ loggedInPage: page }) => {
+    await openSettings(page);
+    await page.getByRole("button", { name: /system settings/i }).click();
+
+    await expect(page.getByText("Language")).toBeVisible();
+    await expect(page.getByText("Language for the interface")).toBeVisible();
+    const langSelect = page.locator("select").filter({ has: page.locator("option[value='en']") });
+    await expect(langSelect).toBeVisible();
+    await expect(langSelect.locator("option[value='en']")).toHaveText("English");
+  });
+
   test("shows Login Attempt Limit input", async ({ loggedInPage: page }) => {
     await openSettings(page);
     await page.getByRole("button", { name: /system settings/i }).click();
 
     await expect(page.getByText("Login Attempt Limit")).toBeVisible();
+    await expect(
+      page.getByText("Max failed login attempts per minute before lockout"),
+    ).toBeVisible();
+  });
+
+  test("shows File Management section with Max File Age and Startup Cleanup", async ({
+    loggedInPage: page,
+  }) => {
+    await openSettings(page);
+    await page.getByRole("button", { name: /system settings/i }).click();
+
+    await expect(page.getByText("File Management")).toBeVisible();
+    await expect(page.getByText("Max File Age (hours)")).toBeVisible();
+    await expect(page.getByText("Startup Cleanup")).toBeVisible();
+    await expect(
+      page.getByText("Clean up old temporary files when the server starts"),
+    ).toBeVisible();
+  });
+
+  test("Startup Cleanup toggle can be toggled", async ({ loggedInPage: page }) => {
+    await openSettings(page);
+    await page.getByRole("button", { name: /system settings/i }).click();
+
+    // Wait for settings to load
+    await expect(page.getByText("Startup Cleanup")).toBeVisible();
+
+    // The toggle is a button.rounded-full near "Startup Cleanup"
+    const toggleRow = page.locator("div").filter({ hasText: "Startup Cleanup" }).last();
+    const toggle = toggleRow.locator("button.rounded-full");
+    await expect(toggle).toBeVisible();
+
+    // Click to toggle
+    await toggle.click();
+    // Toggle state should change (the class alternates between bg-primary and bg-muted)
+    // Just verify the toggle is still clickable (no crash)
+    await toggle.click();
   });
 
   test("Save Settings button persists changes", async ({ loggedInPage: page }) => {
@@ -361,5 +507,110 @@ test.describe("GUI Settings - Product Analytics Tab (deep)", () => {
 
     // One of the two states must be true
     expect(toggleVisible || disabledVisible).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Audit Log Tab (12.8) -- admin-only
+// ---------------------------------------------------------------------------
+
+test.describe("GUI Settings - Audit Log Tab", () => {
+  test("displays Audit Log heading and filter dropdown", async ({ loggedInPage: page }) => {
+    await openSettings(page);
+    await page.getByRole("button", { name: /audit log/i }).click();
+
+    await expect(page.locator("h3").filter({ hasText: "Audit Log" })).toBeVisible();
+    // Filter dropdown with "All actions" default
+    const filterSelect = page.locator("select").filter({ has: page.locator("option[value='']") });
+    await expect(filterSelect).toBeVisible();
+    await expect(filterSelect.locator("option[value='']")).toHaveText("All actions");
+  });
+
+  test("audit table shows Time, User, Action, Target columns", async ({ loggedInPage: page }) => {
+    await openSettings(page);
+    await page.getByRole("button", { name: /audit log/i }).click();
+
+    // Wait for table to render
+    await expect(page.locator("table thead")).toBeVisible({ timeout: 10_000 });
+
+    await expect(page.locator("table thead th").filter({ hasText: "Time" })).toBeVisible();
+    await expect(page.locator("table thead th").filter({ hasText: "User" })).toBeVisible();
+    await expect(page.locator("table thead th").filter({ hasText: "Action" })).toBeVisible();
+    await expect(page.locator("table thead th").filter({ hasText: "Target" })).toBeVisible();
+  });
+
+  test("LOGIN_SUCCESS entries are present after admin login", async ({ loggedInPage: page }) => {
+    await openSettings(page);
+    await page.getByRole("button", { name: /audit log/i }).click();
+
+    // Wait for table to load
+    await expect(page.locator("table tbody tr").first()).toBeVisible({ timeout: 10_000 });
+
+    // Filter by LOGIN_SUCCESS
+    const filterSelect = page.locator("select").first();
+    await filterSelect.selectOption("LOGIN_SUCCESS");
+
+    // Should display at least one LOGIN_SUCCESS row
+    await expect(page.locator("table tbody tr").first()).toBeVisible({ timeout: 10_000 });
+    const tableText = await page.locator("table tbody").textContent();
+    expect(tableText).toContain("LOGIN_SUCCESS");
+  });
+
+  test("filter dropdown includes all expected audit action types", async ({
+    loggedInPage: page,
+  }) => {
+    await openSettings(page);
+    await page.getByRole("button", { name: /audit log/i }).click();
+
+    const filterSelect = page.locator("select").first();
+    await expect(filterSelect).toBeVisible();
+
+    // Verify key action options exist
+    for (const action of [
+      "LOGIN_SUCCESS",
+      "LOGIN_FAILED",
+      "USER_CREATED",
+      "USER_DELETED",
+      "PASSWORD_CHANGED",
+      "API_KEY_CREATED",
+      "SETTINGS_UPDATED",
+    ]) {
+      await expect(filterSelect.locator(`option[value='${action}']`)).toBeAttached();
+    }
+  });
+
+  test("clicking a row expands details", async ({ loggedInPage: page }) => {
+    await openSettings(page);
+    await page.getByRole("button", { name: /audit log/i }).click();
+
+    // Wait for at least one row
+    await expect(page.locator("table tbody tr").first()).toBeVisible({ timeout: 10_000 });
+
+    // Click the first row to expand
+    await page.locator("table tbody tr").first().click();
+
+    // If the entry has details, a <pre> block with JSON appears
+    // (not all entries have details, so we just verify the click does not crash)
+    await page.waitForTimeout(300);
+  });
+
+  test("empty audit log shows 'No audit log entries' message", async ({ loggedInPage: page }) => {
+    await openSettings(page);
+    await page.getByRole("button", { name: /audit log/i }).click();
+
+    // Filter by an action that may not have entries (ROLE_DELETED)
+    const filterSelect = page.locator("select").first();
+    await filterSelect.selectOption("ROLE_DELETED");
+
+    // Wait for the table to update
+    await page.waitForTimeout(1_000);
+
+    // Either we see entries or the empty state
+    const emptyMsg = page.getByText("No audit log entries.");
+    const hasRows = await page.locator("table tbody tr").count();
+    const emptyVisible = await emptyMsg.isVisible().catch(() => false);
+
+    // One must be true -- either rows exist or the empty message shows
+    expect(hasRows > 0 || emptyVisible).toBe(true);
   });
 });

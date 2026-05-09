@@ -209,7 +209,7 @@ export function createMultipartPayload(
     content: Buffer | string;
   }>,
 ): { body: Buffer; contentType: string } {
-  const boundary = "----TestBoundary" + randomUUID().replace(/-/g, "").slice(0, 16);
+  const boundary = `----TestBoundary${randomUUID().replace(/-/g, "").slice(0, 16)}`;
   const parts: Buffer[] = [];
 
   for (const field of fields) {

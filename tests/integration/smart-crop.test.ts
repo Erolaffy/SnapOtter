@@ -19,7 +19,7 @@ import { buildTestApp, createMultipartPayload, loginAsAdmin, type TestApp } from
 
 const FIXTURES = join(__dirname, "..", "fixtures");
 const PNG = readFileSync(join(FIXTURES, "test-200x150.png"));
-const JPG = readFileSync(join(FIXTURES, "test-100x100.jpg"));
+const _JPG = readFileSync(join(FIXTURES, "test-100x100.jpg"));
 const HEIC = readFileSync(join(FIXTURES, "test-200x150.heic"));
 const TINY = readFileSync(join(FIXTURES, "test-1x1.png"));
 

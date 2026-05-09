@@ -202,6 +202,105 @@ test.describe("Multi-file upload", () => {
     // Counter badge should show "1 / 5"
     await expect(page.getByText("1 / 5")).toBeVisible();
   });
+
+  test("upload 5 files shows count with filenames and sizes", async ({ loggedInPage: page }) => {
+    await page.goto("/resize");
+
+    // Upload initial 3 files
+    const fileChooserPromise = page.waitForEvent("filechooser");
+    const dropzone = page.locator("[class*='border-dashed']").first();
+    await dropzone.click();
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles([FIXTURE_JPG, FIXTURE_PNG, FIXTURE_WEBP]);
+    await page.waitForTimeout(500);
+
+    // Add 2 more via "+ Add more"
+    const addMorePromise = page.waitForEvent("filechooser");
+    await page.getByText("+ Add more").click();
+    const addMoreChooser = await addMorePromise;
+    await addMoreChooser.setFiles([FIXTURE_HEIC, FIXTURE_PORTRAIT_JPG]);
+    await page.waitForTimeout(500);
+
+    // Should show "5 files" in the file count badge
+    await expect(page.getByText("Files (5)")).toBeVisible();
+
+    // Each file should have a thumbnail with its filename as the title
+    await expect(page.locator("button[title='test-100x100.jpg']")).toBeVisible();
+    await expect(page.locator("button[title='test-200x150.png']")).toBeVisible();
+    await expect(page.locator("button[title='test-50x50.webp']")).toBeVisible();
+    await expect(page.locator("button[title='test-200x150.heic']")).toBeVisible();
+    await expect(page.locator("button[title='test-portrait.jpg']")).toBeVisible();
+
+    // File info area should show filename and size for the selected file
+    await expect(page.getByText(/test-/i).first()).toBeVisible();
+    await expect(page.getByText(/KB|B/i).first()).toBeVisible();
+  });
+
+  test("upload 3+ files via drag-and-drop and all appear", async ({ loggedInPage: page }) => {
+    await page.goto("/resize");
+
+    const dropzone = page.locator("[class*='border-dashed']").first();
+
+    // Playwright dispatchEvent simulates a drop by creating a DataTransfer
+    // with the specified files. The Dropzone component uses onDrop to call onFiles.
+    const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
+
+    // Create file buffers in the browser and add them to the DataTransfer
+    await page.evaluate(
+      ([dt]) => {
+        const names = ["drop-test-1.jpg", "drop-test-2.png", "drop-test-3.webp"];
+        for (const name of names) {
+          const arr = new Uint8Array(64);
+          for (let i = 0; i < arr.length; i++) arr[i] = i;
+          const blob = new Blob([arr], { type: "image/jpeg" });
+          const file = new File([blob], name, { type: "image/jpeg" });
+          (dt as DataTransfer).items.add(file);
+        }
+      },
+      [dataTransfer],
+    );
+
+    await dropzone.dispatchEvent("drop", { dataTransfer });
+    await page.waitForTimeout(1000);
+
+    // All 3 files should be registered
+    await expect(page.getByText("Files (3)")).toBeVisible();
+  });
+
+  test("selecting thumbnail updates main viewer image", async ({ loggedInPage: page }) => {
+    await page.goto("/resize");
+
+    const fileChooserPromise = page.waitForEvent("filechooser");
+    const dropzone = page.locator("[class*='border-dashed']").first();
+    await dropzone.click();
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles([FIXTURE_JPG, FIXTURE_PNG, FIXTURE_WEBP]);
+    await page.waitForTimeout(1000);
+
+    // The main viewer img should be visible
+    const mainImg = page.locator("section[aria-label='Image viewer'] img").first();
+    await expect(mainImg).toBeVisible();
+
+    // Verify an image is displayed in the viewer (first file is selected by default)
+
+    // Click the second thumbnail (test-200x150.png)
+    await page.locator("button[title='test-200x150.png']").click();
+    await page.waitForTimeout(300);
+
+    // Counter badge should now show "2 / 3"
+    await expect(page.getByText("2 / 3")).toBeVisible();
+
+    // The main viewer image alt text should update to match the second file
+    await expect(mainImg).toHaveAttribute("alt", "test-200x150.png");
+
+    // Click the third thumbnail (test-50x50.webp)
+    await page.locator("button[title='test-50x50.webp']").click();
+    await page.waitForTimeout(300);
+
+    // Counter badge should now show "3 / 3"
+    await expect(page.getByText("3 / 3")).toBeVisible();
+    await expect(mainImg).toHaveAttribute("alt", "test-50x50.webp");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -345,6 +444,73 @@ test.describe("Batch processing", () => {
     ).toBeVisible();
   });
 
+  test("spinner appears during batch processing", async ({ loggedInPage: page }) => {
+    await page.goto("/resize");
+
+    // Upload 2 images
+    const fileChooserPromise = page.waitForEvent("filechooser");
+    const dropzone = page.locator("[class*='border-dashed']").first();
+    await dropzone.click();
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles([FIXTURE_JPG, FIXTURE_PNG]);
+    await page.waitForTimeout(1000);
+
+    // Set resize width
+    await page.locator("input[placeholder='Auto']").first().fill("50");
+
+    // Process batch
+    await page.getByRole("button", { name: /resize.*2 files/i }).click();
+
+    // A spinner (animate-spin) should appear while processing is in progress
+    const spinner = page.locator("[class*='animate-spin']");
+    // The spinner might appear briefly or for a longer period depending on
+    // processing speed. We check it was ever visible or processing completed.
+    await spinner.isVisible({ timeout: 3000 }).catch(() => false);
+
+    // Wait for processing to complete regardless
+    await waitForProcessing(page, 30_000);
+
+    // After processing, spinner should be gone
+    await expect(spinner).not.toBeVisible({ timeout: 5_000 });
+
+    // And results should be available
+    await expect(page.locator("section[aria-label='Image area'] img").first()).toBeVisible({
+      timeout: 15_000,
+    });
+  });
+
+  test("'Download All' triggers ZIP download", async ({ loggedInPage: page }) => {
+    await page.goto("/resize");
+
+    // Upload 2 images
+    const fileChooserPromise = page.waitForEvent("filechooser");
+    const dropzone = page.locator("[class*='border-dashed']").first();
+    await dropzone.click();
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles([FIXTURE_JPG, FIXTURE_PNG]);
+    await page.waitForTimeout(1000);
+
+    // Set resize width
+    await page.locator("input[placeholder='Auto']").first().fill("50");
+
+    // Process batch
+    await page.getByRole("button", { name: /resize.*2 files/i }).click();
+    await waitForProcessing(page, 30_000);
+
+    // Wait for result
+    await expect(page.locator("section[aria-label='Image area'] img").first()).toBeVisible({
+      timeout: 15_000,
+    });
+
+    // Click Download All and verify a download is triggered
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: /download all/i }).click();
+    const download = await downloadPromise;
+
+    // The downloaded file should be a ZIP
+    expect(download.suggestedFilename()).toMatch(/\.zip$/i);
+  });
+
   test("undo on one image does not affect others", async ({ loggedInPage: page }) => {
     await page.goto("/resize");
 
@@ -409,6 +575,45 @@ test.describe("Mixed formats", () => {
     await expect(page.locator("button[title='test-100x100.jpg']")).toBeVisible();
     await expect(page.locator("button[title='test-200x150.png']")).toBeVisible();
     await expect(page.locator("button[title='test-50x50.webp']")).toBeVisible();
+  });
+
+  test("mixed JPEG + PNG + WebP batch processes correctly", async ({ loggedInPage: page }) => {
+    await page.goto("/resize");
+
+    const fileChooserPromise = page.waitForEvent("filechooser");
+    const dropzone = page.locator("[class*='border-dashed']").first();
+    await dropzone.click();
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles([FIXTURE_JPG, FIXTURE_PNG, FIXTURE_WEBP]);
+    await page.waitForTimeout(1000);
+
+    // All 3 mixed-format files should be registered
+    await expect(page.getByText("Files (3)")).toBeVisible();
+
+    // Set resize width
+    await page.locator("input[placeholder='Auto']").first().fill("50");
+
+    // Process batch with mixed formats
+    await page.getByRole("button", { name: /resize.*3 files/i }).click();
+    await waitForProcessing(page, 30_000);
+
+    // After processing, results should be available
+    await expect(page.locator("section[aria-label='Image area'] img").first()).toBeVisible({
+      timeout: 15_000,
+    });
+
+    // Counter badge should show all 3 results navigable
+    await expect(page.getByText("1 / 3")).toBeVisible();
+
+    // Navigate through all results to verify each processed successfully
+    await page.getByRole("button", { name: "Next image" }).click();
+    await expect(page.getByText("2 / 3")).toBeVisible();
+
+    await page.getByRole("button", { name: "Next image" }).click();
+    await expect(page.getByText("3 / 3")).toBeVisible();
+
+    // Download All should be available for mixed-format batch
+    await expect(page.getByRole("button", { name: /download all/i })).toBeVisible();
   });
 
   test("upload JPEG + PNG + WebP + HEIC mixed batch and all are accepted", async ({

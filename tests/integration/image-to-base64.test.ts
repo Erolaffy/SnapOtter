@@ -816,6 +816,139 @@ describe("image-to-base64", () => {
     expect(json.results[0].dataUri).toMatch(/^data:image\/.+;base64,/);
   });
 
+  // ── JXL output format accepted by Zod ─────────────────────────────
+
+  it("accepts jxl as a valid outputFormat value", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.png", contentType: "image/png", content: PNG },
+      { name: "settings", content: JSON.stringify({ outputFormat: "jxl" }) },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/image-to-base64",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    // JXL is accepted by the Zod schema; whether it succeeds depends on
+    // Sharp's platform support. Either way, the route should return 200.
+    expect(res.statusCode).toBe(200);
+    const json = JSON.parse(res.body);
+    // If JXL is supported, result is in results; otherwise in errors
+    expect(json.results.length + json.errors.length).toBe(1);
+  });
+
+  // ── Data URI string length verification ─────────────────────────
+
+  it("data URI string length matches base64 + prefix", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.png", contentType: "image/png", content: PNG },
+      { name: "settings", content: JSON.stringify({}) },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/image-to-base64",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const json = JSON.parse(res.body);
+    const r = json.results[0];
+    const expectedPrefix = `data:${r.mimeType};base64,`;
+    expect(r.dataUri.startsWith(expectedPrefix)).toBe(true);
+    expect(r.dataUri.length).toBe(expectedPrefix.length + r.base64.length);
+  });
+
+  // ── TIFF input format ───────────────────────────────────────────
+
+  it("converts TIFF to base64", async () => {
+    const TIFF = readFileSync(join(FIXTURES, "formats", "sample.tiff"));
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.tiff", contentType: "image/tiff", content: TIFF },
+      { name: "settings", content: JSON.stringify({}) },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/image-to-base64",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const json = JSON.parse(res.body);
+    expect(json.results).toHaveLength(1);
+    expect(json.results[0].base64.length).toBeGreaterThan(0);
+  });
+
+  // ── Negative maxWidth rejected ──────────────────────────────────
+
+  it("rejects negative maxWidth", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.png", contentType: "image/png", content: PNG },
+      { name: "settings", content: JSON.stringify({ maxWidth: -1 }) },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/image-to-base64",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  // ── Negative maxHeight rejected ─────────────────────────────────
+
+  it("rejects negative maxHeight", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.png", contentType: "image/png", content: PNG },
+      { name: "settings", content: JSON.stringify({ maxHeight: -1 }) },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/image-to-base64",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  // ── Multiple formats in single request ──────────────────────────
+
+  it("converts mixed formats in a single batch request", async () => {
+    const WEBP = readFileSync(join(FIXTURES, "test-50x50.webp"));
+    const TIFF = readFileSync(join(FIXTURES, "formats", "sample.tiff"));
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "a.png", contentType: "image/png", content: PNG },
+      { name: "file", filename: "b.jpg", contentType: "image/jpeg", content: JPG },
+      { name: "file", filename: "c.webp", contentType: "image/webp", content: WEBP },
+      { name: "file", filename: "d.tiff", contentType: "image/tiff", content: TIFF },
+      { name: "settings", content: JSON.stringify({ outputFormat: "jpeg", quality: 60 }) },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/image-to-base64",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const json = JSON.parse(res.body);
+    expect(json.results).toHaveLength(4);
+    for (const r of json.results) {
+      expect(r.mimeType).toBe("image/jpeg");
+      expect(r.base64.length).toBeGreaterThan(0);
+    }
+  });
+
   // ── maxHeight=0 means no resize ──────────────────────────────────
 
   it("maxHeight=0 means no height resize (pass-through)", async () => {

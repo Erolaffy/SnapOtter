@@ -61,7 +61,7 @@ function buildMultipart(
   };
 }
 
-async function uploadFiles(page: Page, filePaths: string[]): Promise<void> {
+async function _uploadFiles(page: Page, filePaths: string[]): Promise<void> {
   const fileChooserPromise = page.waitForEvent("filechooser");
   const dropzone = page.locator("[class*='border-dashed']").first();
   await dropzone.click();
@@ -70,7 +70,7 @@ async function uploadFiles(page: Page, filePaths: string[]): Promise<void> {
   await page.waitForTimeout(3000);
 }
 
-async function waitForProcessingDone(page: Page, timeoutMs = 120_000): Promise<void> {
+async function _waitForProcessingDone(page: Page, timeoutMs = 120_000): Promise<void> {
   try {
     const spinner = page.locator("[class*='animate-spin']");
     if (await spinner.isVisible({ timeout: 3000 })) {

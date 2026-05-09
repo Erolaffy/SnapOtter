@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import path from "node:path";
 import { expect, getTestHeicPath, test } from "./helpers";
 
@@ -12,7 +11,7 @@ function getFixturePath(name: string): string {
   return path.join(process.cwd(), "tests", "fixtures", name);
 }
 
-function uploadMultipleFiles(page: import("@playwright/test").Page, filePaths: string[]) {
+function _uploadMultipleFiles(page: import("@playwright/test").Page, filePaths: string[]) {
   return async () => {
     const fileChooserPromise = page.waitForEvent("filechooser");
     const dropzone = page.locator("[class*='border-dashed']").first();

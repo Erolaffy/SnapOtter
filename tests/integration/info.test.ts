@@ -663,4 +663,255 @@ describe("Info", () => {
     const result = JSON.parse(res.body);
     expect(result).toHaveProperty("orientation");
   });
+
+  // ── BMP format info ──────────────────────────────────────────────
+
+  it("returns metadata for BMP image", async () => {
+    const BMP = readFileSync(join(FIXTURES, "formats", "sample.bmp"));
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "sample.bmp", contentType: "image/bmp", content: BMP },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/info",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    // BMP may need CLI decoding; accept success or processing error
+    expect([200, 422]).toContain(res.statusCode);
+    if (res.statusCode === 200) {
+      const result = JSON.parse(res.body);
+      expect(result.width).toBeGreaterThan(0);
+      expect(result.height).toBeGreaterThan(0);
+      expect(result.fileSize).toBeGreaterThan(0);
+    }
+  });
+
+  // ── TIFF format info ──────────────────────────────────────────────
+
+  it("returns metadata for single-page TIFF image", async () => {
+    const TIFF = readFileSync(join(FIXTURES, "formats", "sample.tiff"));
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "sample.tiff", contentType: "image/tiff", content: TIFF },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/info",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.format).toBe("tiff");
+    expect(result.width).toBeGreaterThan(0);
+    expect(result.height).toBeGreaterThan(0);
+    expect(result.fileSize).toBeGreaterThan(0);
+  });
+
+  // ── GIF format info ───────────────────────────────────────────────
+
+  it("returns correct format string for GIF", async () => {
+    const GIF = readFileSync(join(FIXTURES, "animated.gif"));
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.gif", contentType: "image/gif", content: GIF },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/info",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.format).toBe("gif");
+    expect(result.filename).toBe("test.gif");
+    expect(result.fileSize).toBeGreaterThan(0);
+  });
+
+  // ── hasProfile field ──────────────────────────────────────────────
+
+  it("reports hasProfile as boolean for all images", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.jpg", contentType: "image/jpeg", content: JPG },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/info",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(typeof result.hasProfile).toBe("boolean");
+  });
+
+  // ── Large file fileSize accuracy ──────────────────────────────────
+
+  it("reports accurate fileSize for large image", async () => {
+    const LARGE = readFileSync(join(FIXTURES, "content", "stress-large.jpg"));
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "stress-large.jpg", contentType: "image/jpeg", content: LARGE },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/info",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.fileSize).toBe(LARGE.length);
+  });
+
+  // ── Tiny image histogram ──────────────────────────────────────────
+
+  it("returns histogram data for 1x1 pixel image", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "tiny.png", contentType: "image/png", content: TINY_PNG },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/info",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.histogram).toBeDefined();
+    expect(Array.isArray(result.histogram)).toBe(true);
+    expect(result.histogram.length).toBeGreaterThanOrEqual(1);
+  });
+
+  // ── Portrait image info ───────────────────────────────────────────
+
+  it("returns correct dimensions for portrait-oriented image", async () => {
+    const PORTRAIT = readFileSync(join(FIXTURES, "test-portrait.jpg"));
+    const { body, contentType } = createMultipartPayload([
+      {
+        name: "file",
+        filename: "test-portrait.jpg",
+        contentType: "image/jpeg",
+        content: PORTRAIT,
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/info",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.width).toBeGreaterThan(0);
+    expect(result.height).toBeGreaterThan(0);
+    expect(result.format).toBe("jpeg");
+  });
+
+  // ── Blank image info ──────────────────────────────────────────────
+
+  it("returns metadata for blank PNG image", async () => {
+    const BLANK = readFileSync(join(FIXTURES, "test-blank.png"));
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test-blank.png", contentType: "image/png", content: BLANK },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/info",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.format).toBe("png");
+    expect(result.width).toBeGreaterThan(0);
+    expect(result.height).toBeGreaterThan(0);
+  });
+
+  // ── File size field matches input buffer length ───────────────────
+
+  it("fileSize matches the exact input buffer length for PNG", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.png", contentType: "image/png", content: PNG },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/info",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.fileSize).toBe(PNG.length);
+  });
+
+  // ── Response type verification ────────────────────────────────────
+
+  it("returns numeric types for dimension and channel fields", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.jpg", contentType: "image/jpeg", content: JPG },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/info",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(typeof result.width).toBe("number");
+    expect(typeof result.height).toBe("number");
+    expect(typeof result.channels).toBe("number");
+    expect(typeof result.fileSize).toBe("number");
+    expect(typeof result.pages).toBe("number");
+  });
 });

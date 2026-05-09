@@ -399,6 +399,160 @@ test.describe("Image Enhancement", () => {
   });
 });
 
+// ─── Color Blindness Simulation ────────────────────────────────────
+
+test.describe("Color Blindness Simulation", () => {
+  test("simulate deuteranomaly (default)", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/color-blindness", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "test.png", mimeType: "image/png", buffer: PNG_200x150 },
+        settings: JSON.stringify({}),
+      },
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.downloadUrl).toBeTruthy();
+    expect(body.processedSize).toBeGreaterThan(0);
+  });
+
+  test("simulate protanopia on JPEG", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/color-blindness", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "test.jpg", mimeType: "image/jpeg", buffer: JPG_100x100 },
+        settings: JSON.stringify({ simulationType: "protanopia" }),
+      },
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.downloadUrl).toBeTruthy();
+  });
+
+  test("simulate tritanopia", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/color-blindness", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "test.png", mimeType: "image/png", buffer: PNG_200x150 },
+        settings: JSON.stringify({ simulationType: "tritanopia" }),
+      },
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.downloadUrl).toBeTruthy();
+  });
+
+  test("simulate achromatopsia (total color blindness)", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/color-blindness", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "test.jpg", mimeType: "image/jpeg", buffer: JPG_100x100 },
+        settings: JSON.stringify({ simulationType: "achromatopsia" }),
+      },
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.downloadUrl).toBeTruthy();
+  });
+
+  test("simulate protanomaly", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/color-blindness", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "test.png", mimeType: "image/png", buffer: PNG_200x150 },
+        settings: JSON.stringify({ simulationType: "protanomaly" }),
+      },
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.downloadUrl).toBeTruthy();
+  });
+
+  test("simulate tritanomaly", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/color-blindness", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "sample.jpg", mimeType: "image/jpeg", buffer: JPG_SAMPLE },
+        settings: JSON.stringify({ simulationType: "tritanomaly" }),
+      },
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.downloadUrl).toBeTruthy();
+  });
+
+  test("simulate blueConeMonochromacy", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/color-blindness", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "test.png", mimeType: "image/png", buffer: PNG_200x150 },
+        settings: JSON.stringify({ simulationType: "blueConeMonochromacy" }),
+      },
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.downloadUrl).toBeTruthy();
+  });
+
+  test("color-blindness on HEIC image", async ({ request }) => {
+    const heic = readFileSync(join(FIXTURES, "test-200x150.heic"));
+    const res = await request.post("/api/v1/tools/color-blindness", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "test.heic", mimeType: "image/heic", buffer: heic },
+        settings: JSON.stringify({ simulationType: "deuteranopia" }),
+      },
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.downloadUrl).toBeTruthy();
+  });
+});
+
+// ─── Color Adjustments — Additional ────────────────────────────────
+
+test.describe("Color Adjustments — additional", () => {
+  test("adjust hue rotation", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/adjust-colors", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "test.png", mimeType: "image/png", buffer: PNG_200x150 },
+        settings: JSON.stringify({ hue: 90 }),
+      },
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.downloadUrl).toBeTruthy();
+  });
+
+  test("extreme brightness and contrast", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/adjust-colors", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "test.jpg", mimeType: "image/jpeg", buffer: JPG_100x100 },
+        settings: JSON.stringify({ brightness: 100, contrast: 100 }),
+      },
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.downloadUrl).toBeTruthy();
+  });
+
+  test("color adjustments on HEIC image", async ({ request }) => {
+    const heic = readFileSync(join(FIXTURES, "test-200x150.heic"));
+    const res = await request.post("/api/v1/tools/adjust-colors", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "test.heic", mimeType: "image/heic", buffer: heic },
+        settings: JSON.stringify({ brightness: 15, saturation: 10 }),
+      },
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.downloadUrl).toBeTruthy();
+  });
+});
+
 // ─── Auth Failure ──────────────────────────────────────────────────
 
 test.describe("Auth failure", () => {
@@ -427,6 +581,16 @@ test.describe("Auth failure", () => {
       multipart: {
         file: { name: "test.jpg", mimeType: "image/jpeg", buffer: JPG_100x100 },
         settings: JSON.stringify({ artist: "Test" }),
+      },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test("color-blindness without token returns 401", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/color-blindness", {
+      multipart: {
+        file: { name: "test.png", mimeType: "image/png", buffer: PNG_200x150 },
+        settings: JSON.stringify({}),
       },
     });
     expect(res.status()).toBe(401);

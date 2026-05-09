@@ -440,6 +440,119 @@ describe("SVG input", () => {
   });
 });
 
+// ── TIFF input ─────────────────────────────────────────────────
+describe("TIFF input", () => {
+  it("extracts palette from TIFF image", async () => {
+    const TIFF = readFileSync(join(FIXTURES, "formats", "sample.tiff"));
+    const { body: payload, contentType } = makeFilePayload(TIFF, "test.tiff", "image/tiff");
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/color-palette",
+      payload,
+      headers: {
+        "content-type": contentType,
+        authorization: `Bearer ${adminToken}`,
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.colors.length).toBeGreaterThan(0);
+    expect(result.filename).toBe("test.tiff");
+  });
+});
+
+// ── Real photo with many colors ────────────────────────────────
+describe("Real photo palette", () => {
+  it("extracts palette from portrait-color.jpg", async () => {
+    const PHOTO = readFileSync(join(FIXTURES, "content", "portrait-color.jpg"));
+    const { body: payload, contentType } = makeFilePayload(PHOTO, "photo.jpg", "image/jpeg");
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/color-palette",
+      payload,
+      headers: {
+        "content-type": contentType,
+        authorization: `Bearer ${adminToken}`,
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.colors.length).toBeGreaterThanOrEqual(2);
+    expect(result.colors.length).toBeLessThanOrEqual(8);
+    // Verify all colors are valid hex
+    for (const color of result.colors) {
+      expect(color).toMatch(/^#[0-9a-f]{6}$/);
+    }
+  });
+});
+
+// ── Solid black image ──────────────────────────────────────────
+describe("Solid black image", () => {
+  it("returns a single dominant color for a solid black image", async () => {
+    const blackBuffer = await sharp({
+      create: { width: 50, height: 50, channels: 3, background: { r: 0, g: 0, b: 0 } },
+    })
+      .png()
+      .toBuffer();
+
+    const { body: payload, contentType } = makeFilePayload(blackBuffer, "black.png", "image/png");
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/color-palette",
+      payload,
+      headers: {
+        "content-type": contentType,
+        authorization: `Bearer ${adminToken}`,
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.colors.length).toBe(1);
+    expect(result.colors[0]).toBe("#000000");
+  });
+});
+
+// ── Color count is between 1 and 8 ────────────────────────────
+describe("Color count bounds", () => {
+  it("count field matches colors array length", async () => {
+    const { body: payload, contentType } = makeFilePayload(PNG, "test.png", "image/png");
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/color-palette",
+      payload,
+      headers: {
+        "content-type": contentType,
+        authorization: `Bearer ${adminToken}`,
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.count).toBe(result.colors.length);
+    expect(result.count).toBeGreaterThanOrEqual(1);
+    expect(result.count).toBeLessThanOrEqual(8);
+  });
+});
+
+// ── AVIF input ─────────────────────────────────────────────────
+describe("AVIF input", () => {
+  it("extracts palette from AVIF image", async () => {
+    const AVIF = readFileSync(join(FIXTURES, "formats", "sample.avif"));
+    const { body: payload, contentType } = makeFilePayload(AVIF, "test.avif", "image/avif");
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/color-palette",
+      payload,
+      headers: {
+        "content-type": contentType,
+        authorization: `Bearer ${adminToken}`,
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.colors.length).toBeGreaterThan(0);
+  });
+});
+
 // ── Filename preserved in response ──────────────────────────────
 describe("Filename tracking", () => {
   it("returns the original filename in the response", async () => {

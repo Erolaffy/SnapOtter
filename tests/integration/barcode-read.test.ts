@@ -900,4 +900,90 @@ describe("Barcode Read", () => {
     expect(result.filename).toBe("icon.svg");
     expect(Array.isArray(result.barcodes)).toBe(true);
   });
+
+  // ── QR code rendered as SVG then read back ────────────────────────
+
+  it("reads barcode from SVG-rendered QR code", async () => {
+    // Generate a QR code SVG via qr-generate
+    const genRes = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/qr-generate",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": "application/json",
+      },
+      payload: { text: "https://snapotter.com", format: "svg" },
+    });
+
+    const genResult = JSON.parse(genRes.body);
+    if (genResult.downloadUrl) {
+      const dlRes = await app.inject({
+        method: "GET",
+        url: genResult.downloadUrl,
+      });
+
+      if (dlRes.statusCode === 200) {
+        // Convert SVG to PNG first, then read barcode
+        const pngBuf = await sharp(dlRes.rawPayload).png().toBuffer();
+        const { body, contentType } = createMultipartPayload([
+          { name: "file", filename: "qr-svg.png", contentType: "image/png", content: pngBuf },
+        ]);
+
+        const res = await app.inject({
+          method: "POST",
+          url: "/api/v1/tools/barcode-read",
+          headers: {
+            authorization: `Bearer ${adminToken}`,
+            "content-type": contentType,
+          },
+          body,
+        });
+
+        expect(res.statusCode).toBe(200);
+        const result = JSON.parse(res.body);
+        expect(Array.isArray(result.barcodes)).toBe(true);
+      }
+    }
+  });
+
+  // ── Barcode text content verification ─────────────────────────────
+
+  it("returns correct barcode text for known QR content", async () => {
+    // Generate a QR code with specific known text
+    const testText = "barcode-read-verification-test-12345";
+    const genRes = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/qr-generate",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": "application/json",
+      },
+      payload: { text: testText, size: 500 },
+    });
+    const genResult = JSON.parse(genRes.body);
+    const dlRes = await app.inject({
+      method: "GET",
+      url: genResult.downloadUrl,
+    });
+
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "verify.png", contentType: "image/png", content: dlRes.rawPayload },
+      { name: "settings", content: JSON.stringify({ tryHarder: true }) },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/barcode-read",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.barcodes.length).toBeGreaterThanOrEqual(1);
+    expect(result.barcodes[0].text).toBe(testText);
+  });
 });

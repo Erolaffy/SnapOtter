@@ -10,7 +10,7 @@ import {
   createGradientBackground,
 } from "../../../apps/api/src/lib/bg-effects.js";
 
-const FIXTURES = join(__dirname, "../../fixtures");
+const _FIXTURES = join(__dirname, "../../fixtures");
 
 async function createTestImage(
   width: number,

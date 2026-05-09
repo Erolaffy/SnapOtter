@@ -1043,4 +1043,98 @@ describe("Find Duplicates", () => {
     expect(result.totalImages).toBe(2);
     expect(result.duplicateGroups).toHaveLength(1);
   });
+
+  // ── Mixed SVG and raster duplicate detection ──────────────────────
+
+  it("detects duplicates across SVG and raster formats", async () => {
+    const SVG = readFileSync(join(FIXTURES, "test-100x100.svg"));
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "a.svg", contentType: "image/svg+xml", content: SVG },
+      { name: "file", filename: "b.svg", contentType: "image/svg+xml", content: SVG },
+      { name: "file", filename: "c.jpg", contentType: "image/jpeg", content: JPG },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/find-duplicates",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.totalImages).toBe(3);
+    // At least the SVG pair should be grouped
+    expect(result.duplicateGroups.length).toBeGreaterThanOrEqual(1);
+  });
+
+  // ── 10 images stress test ─────────────────────────────────────────
+
+  it("handles 10 images in a single request", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "a.png", contentType: "image/png", content: PNG },
+      { name: "file", filename: "b.png", contentType: "image/png", content: PNG },
+      { name: "file", filename: "c.png", contentType: "image/png", content: PNG },
+      { name: "file", filename: "d.jpg", contentType: "image/jpeg", content: JPG },
+      { name: "file", filename: "e.jpg", contentType: "image/jpeg", content: JPG },
+      { name: "file", filename: "f.jpg", contentType: "image/jpeg", content: JPG },
+      { name: "file", filename: "g.webp", contentType: "image/webp", content: WEBP },
+      { name: "file", filename: "h.webp", contentType: "image/webp", content: WEBP },
+      { name: "file", filename: "i.jpg", contentType: "image/jpeg", content: PORTRAIT },
+      { name: "file", filename: "j.png", contentType: "image/png", content: PNG },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/find-duplicates",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.totalImages).toBe(10);
+    // PNG group (4), JPG group (3), WEBP group (2) -- portrait is unique
+    expect(result.duplicateGroups.length).toBeGreaterThanOrEqual(1);
+    expect(result.uniqueImages).toBeGreaterThanOrEqual(1);
+    expect(result.spaceSaveable).toBeGreaterThan(0);
+  });
+
+  // ── Threshold at 1 ────────────────────────────────────────────────
+
+  it("uses threshold 1 for very strict duplicate matching", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "a.png", contentType: "image/png", content: PNG },
+      { name: "file", filename: "b.png", contentType: "image/png", content: PNG },
+      { name: "file", filename: "c.jpg", contentType: "image/jpeg", content: PORTRAIT },
+      {
+        name: "settings",
+        content: JSON.stringify({ threshold: 1 }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/find-duplicates",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.totalImages).toBe(3);
+    // Identical PNGs should still be grouped at threshold 1
+    // The portrait is perceptually different, so should not be grouped
+    expect(result.duplicateGroups).toHaveLength(1);
+    expect(result.duplicateGroups[0].files).toHaveLength(2);
+  });
 });

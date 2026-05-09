@@ -27,6 +27,56 @@ test.describe("GUI Format & Conversion Tools", () => {
       // SVG tool needs an SVG file; just verify the submit testid exists on the page
       await expect(page.getByTestId("svg-to-raster-submit")).toBeVisible();
     });
+
+    test("shows sizing mode buttons (Scale Factor / Custom Size)", async ({
+      loggedInPage: page,
+    }) => {
+      await page.goto("/svg-to-raster");
+
+      await expect(page.getByRole("button", { name: "Scale Factor" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Custom Size" })).toBeVisible();
+    });
+
+    test("shows DPI preset buttons", async ({ loggedInPage: page }) => {
+      await page.goto("/svg-to-raster");
+
+      await expect(page.getByRole("button", { name: "72" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "96" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "150" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "300" })).toBeVisible();
+    });
+
+    test("shows format buttons (png, jpg, webp, avif, etc.)", async ({ loggedInPage: page }) => {
+      await page.goto("/svg-to-raster");
+
+      await expect(page.getByRole("button", { name: /^png$/i })).toBeVisible();
+      await expect(page.getByRole("button", { name: /^jpg$/i })).toBeVisible();
+      await expect(page.getByRole("button", { name: /^webp$/i })).toBeVisible();
+    });
+
+    test("shows background mode buttons (Transparent / Color)", async ({ loggedInPage: page }) => {
+      await page.goto("/svg-to-raster");
+
+      await expect(page.getByRole("button", { name: "Transparent" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Color" })).toBeVisible();
+    });
+
+    test("color mode shows color presets when selected", async ({ loggedInPage: page }) => {
+      await page.goto("/svg-to-raster");
+
+      await page.getByRole("button", { name: "Color" }).click();
+      // Should show white and black color buttons
+      await expect(page.locator("button[aria-label='White background']")).toBeVisible();
+      await expect(page.locator("button[aria-label='Black background']")).toBeVisible();
+    });
+
+    test("custom size mode shows width and height inputs", async ({ loggedInPage: page }) => {
+      await page.goto("/svg-to-raster");
+
+      await page.getByRole("button", { name: "Custom Size" }).click();
+      await expect(page.locator("#svg-custom-width")).toBeVisible();
+      await expect(page.locator("#svg-custom-height")).toBeVisible();
+    });
   });
 
   // ========================================================================
@@ -56,6 +106,64 @@ test.describe("GUI Format & Conversion Tools", () => {
 
       // Color mode: B&W / Color from vectorize-settings.tsx
       await expect(page.getByText(/color mode|b&w|black/i).first()).toBeVisible();
+    });
+
+    test("shows detail level buttons (low, medium, high)", async ({ loggedInPage: page }) => {
+      await page.goto("/vectorize");
+      await uploadTestImage(page);
+
+      await expect(page.getByRole("button", { name: /^low$/i })).toBeVisible();
+      await expect(page.getByRole("button", { name: /^medium$/i })).toBeVisible();
+      await expect(page.getByRole("button", { name: /^high$/i })).toBeVisible();
+    });
+
+    test("shows smoothing buttons (none, polygon, spline)", async ({ loggedInPage: page }) => {
+      await page.goto("/vectorize");
+      await uploadTestImage(page);
+
+      await expect(page.getByRole("button", { name: /^none$/i })).toBeVisible();
+      await expect(page.getByRole("button", { name: /^polygon$/i })).toBeVisible();
+      await expect(page.getByRole("button", { name: /^spline$/i })).toBeVisible();
+    });
+
+    test("shows invert colors toggle", async ({ loggedInPage: page }) => {
+      await page.goto("/vectorize");
+      await uploadTestImage(page);
+
+      await expect(page.getByText("Invert Colors")).toBeVisible();
+    });
+
+    test("switching to color mode shows color precision slider", async ({ loggedInPage: page }) => {
+      await page.goto("/vectorize");
+      await uploadTestImage(page);
+
+      // Logo preset defaults to B&W -- switch to illustration for color mode
+      await page.getByRole("button", { name: /^illustration$/i }).click();
+      await expect(page.locator("#vectorize-color-precision")).toBeVisible();
+      await expect(page.getByText("Color Precision")).toBeVisible();
+    });
+
+    test("B&W mode shows threshold slider", async ({ loggedInPage: page }) => {
+      await page.goto("/vectorize");
+      await uploadTestImage(page);
+
+      // Logo preset defaults to B&W
+      await expect(page.locator("#vectorize-threshold")).toBeVisible();
+      await expect(page.getByText("Threshold")).toBeVisible();
+    });
+
+    test("shows custom preset button", async ({ loggedInPage: page }) => {
+      await page.goto("/vectorize");
+      await uploadTestImage(page);
+
+      await expect(page.getByRole("button", { name: /^custom$/i })).toBeVisible();
+    });
+
+    test("submit button uses data-testid", async ({ loggedInPage: page }) => {
+      await page.goto("/vectorize");
+      await uploadTestImage(page);
+
+      await expect(page.getByTestId("vectorize-submit")).toBeVisible();
     });
 
     test("processes vectorize and shows download", async ({ loggedInPage: page }) => {
@@ -93,6 +201,67 @@ test.describe("GUI Format & Conversion Tools", () => {
     test("shows settings section", async ({ loggedInPage: page }) => {
       await page.goto("/gif-tools");
       await expect(page.getByText("Settings").first()).toBeVisible();
+    });
+
+    test("shows all six mode tabs after upload", async ({ loggedInPage: page }) => {
+      await page.goto("/gif-tools");
+      await uploadTestImage(page);
+
+      await expect(page.getByRole("button", { name: "Resize" }).first()).toBeVisible();
+      await expect(page.getByRole("button", { name: "Optimize" }).first()).toBeVisible();
+      // Speed, Reverse, Extract require animated GIF -- may be disabled but visible
+      await expect(page.getByRole("button", { name: "Speed" }).first()).toBeVisible();
+      await expect(page.getByRole("button", { name: "Reverse" }).first()).toBeVisible();
+      await expect(page.getByRole("button", { name: "Extract" }).first()).toBeVisible();
+      await expect(page.getByRole("button", { name: "Rotate" }).first()).toBeVisible();
+    });
+
+    test("resize mode shows pixel and percentage tabs", async ({ loggedInPage: page }) => {
+      await page.goto("/gif-tools");
+      await uploadTestImage(page);
+
+      // Resize is default mode
+      await expect(page.getByRole("button", { name: "Pixels" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Percentage" })).toBeVisible();
+    });
+
+    test("resize pixel mode shows width and height inputs", async ({ loggedInPage: page }) => {
+      await page.goto("/gif-tools");
+      await uploadTestImage(page);
+
+      await expect(page.locator("#gif-width")).toBeVisible();
+      await expect(page.locator("#gif-height")).toBeVisible();
+    });
+
+    test("optimize mode shows colors and dither sliders", async ({ loggedInPage: page }) => {
+      await page.goto("/gif-tools");
+      await uploadTestImage(page);
+
+      await page.getByRole("button", { name: "Optimize" }).first().click();
+      await expect(page.locator("#gif-colors")).toBeVisible();
+      await expect(page.locator("#gif-dither")).toBeVisible();
+      await expect(page.locator("#gif-effort")).toBeVisible();
+    });
+
+    test("rotate mode shows angle buttons and flip controls", async ({ loggedInPage: page }) => {
+      await page.goto("/gif-tools");
+      await uploadTestImage(page);
+
+      await page.getByRole("button", { name: "Rotate" }).first().click();
+      await expect(page.getByText("Angle")).toBeVisible();
+      await expect(page.getByText("Flip")).toBeVisible();
+      await expect(page.getByText("Horizontal")).toBeVisible();
+      await expect(page.getByText("Vertical")).toBeVisible();
+    });
+
+    test("shows loop control section", async ({ loggedInPage: page }) => {
+      await page.goto("/gif-tools");
+      await uploadTestImage(page);
+
+      await expect(page.getByText("Loop")).toBeVisible();
+      await expect(page.getByRole("button", { name: "Infinite" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Once" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Custom" })).toBeVisible();
     });
 
     test("submit button uses data-testid", async ({ loggedInPage: page }) => {
@@ -225,6 +394,58 @@ test.describe("GUI Format & Conversion Tools", () => {
       await uploadTestImage(page);
 
       await expect(page.getByText(/strip metadata|remove metadata/i).first()).toBeVisible();
+    });
+
+    test("shows all five format buttons", async ({ loggedInPage: page }) => {
+      await page.goto("/optimize-for-web");
+      await uploadTestImage(page);
+
+      await expect(page.getByRole("button", { name: "WebP" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "JPEG" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "AVIF" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "PNG" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "JXL" })).toBeVisible();
+    });
+
+    test("quality slider hidden for PNG format", async ({ loggedInPage: page }) => {
+      await page.goto("/optimize-for-web");
+      await uploadTestImage(page);
+
+      await page.getByRole("button", { name: "PNG" }).click();
+      await expect(page.locator("#web-quality")).not.toBeVisible();
+    });
+
+    test("quality slider visible for WebP format", async ({ loggedInPage: page }) => {
+      await page.goto("/optimize-for-web");
+      await uploadTestImage(page);
+
+      await page.getByRole("button", { name: "WebP" }).click();
+      await expect(page.locator("#web-quality")).toBeVisible();
+    });
+
+    test("shows collapsible Max Dimensions section", async ({ loggedInPage: page }) => {
+      await page.goto("/optimize-for-web");
+      await uploadTestImage(page);
+
+      await expect(page.getByText("Max Dimensions")).toBeVisible();
+
+      // Click to expand
+      await page.getByText("Max Dimensions").click();
+      await expect(page.locator("#max-width")).toBeVisible();
+      await expect(page.locator("#max-height")).toBeVisible();
+    });
+
+    test("strip metadata toggle is interactive", async ({ loggedInPage: page }) => {
+      await page.goto("/optimize-for-web");
+      await uploadTestImage(page);
+
+      const toggle = page.locator("#strip-meta");
+      await expect(toggle).toBeVisible();
+      await expect(toggle).toHaveAttribute("aria-checked", "true");
+
+      // Toggle off
+      await toggle.click();
+      await expect(toggle).toHaveAttribute("aria-checked", "false");
     });
   });
 });

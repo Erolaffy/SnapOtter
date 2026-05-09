@@ -13,7 +13,7 @@ import { buildTestApp, createMultipartPayload, loginAsAdmin, type TestApp } from
 
 const FIXTURES = join(__dirname, "..", "fixtures");
 const PNG = readFileSync(join(FIXTURES, "test-200x150.png"));
-const JPG = readFileSync(join(FIXTURES, "test-100x100.jpg"));
+const _JPG = readFileSync(join(FIXTURES, "test-100x100.jpg"));
 const WEBP = readFileSync(join(FIXTURES, "test-50x50.webp"));
 
 let testApp: TestApp;

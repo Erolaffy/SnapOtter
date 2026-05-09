@@ -98,10 +98,10 @@ describe("readManifest", () => {
 
     const result = readManifest(filePath);
     expect(result).not.toBeNull();
-    expect(result!.bundles["ai-rembg"]).toBeDefined();
-    expect(result!.bundles["ai-rembg"].models).toHaveLength(1);
-    expect(result!.bundles["ai-rembg"].models[0].id).toBe("u2net");
-    expect(result!.bundles["ai-rembg"].models[0].path).toBe("rembg/u2net.onnx");
+    expect(result?.bundles["ai-rembg"]).toBeDefined();
+    expect(result?.bundles["ai-rembg"].models).toHaveLength(1);
+    expect(result?.bundles["ai-rembg"].models[0].id).toBe("u2net");
+    expect(result?.bundles["ai-rembg"].models[0].path).toBe("rembg/u2net.onnx");
   });
 
   it("returns null for invalid JSON", () => {
@@ -118,7 +118,7 @@ describe("readManifest", () => {
 
     const result = readManifest(filePath);
     expect(result).not.toBeNull();
-    expect(Object.keys(result!.bundles)).toHaveLength(0);
+    expect(Object.keys(result?.bundles)).toHaveLength(0);
   });
 
   it("handles manifest with models without paths", () => {
@@ -135,7 +135,7 @@ describe("readManifest", () => {
     );
 
     const result = readManifest(filePath);
-    expect(result!.bundles["ai-test"].models[0].path).toBeUndefined();
+    expect(result?.bundles["ai-test"].models[0].path).toBeUndefined();
   });
 
   it("handles manifest with multiple bundles", () => {
@@ -151,7 +151,7 @@ describe("readManifest", () => {
     );
 
     const result = readManifest(filePath);
-    expect(Object.keys(result!.bundles)).toHaveLength(2);
+    expect(Object.keys(result?.bundles)).toHaveLength(2);
   });
 });
 

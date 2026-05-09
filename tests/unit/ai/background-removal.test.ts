@@ -357,7 +357,7 @@ describe("removeBackground", () => {
     });
 
     it("upscales mask back to original dimensions after processing", async () => {
-      const callCount = 0;
+      const _callCount = 0;
       const resizeFn = vi.fn().mockReturnThis();
       vi.mocked(sharp).mockImplementation(
         () =>
@@ -376,7 +376,7 @@ describe("removeBackground", () => {
           c[0] && typeof c[0] === "object" && (c[0] as Record<string, unknown>).width === 5000,
       );
       expect(upscaleCall).toBeDefined();
-      expect(upscaleCall![0]).toMatchObject({ width: 5000, height: 3000, fit: "fill" });
+      expect(upscaleCall?.[0]).toMatchObject({ width: 5000, height: 3000, fit: "fill" });
     });
 
     it("does not upscale mask when image was not downscaled", async () => {

@@ -172,7 +172,7 @@ describe("ContactPage", () => {
         (c: string[]) => typeof c[0] === "string" && c[0].includes("formspree.io"),
       );
       expect(formspreeCall).toBeDefined();
-      expect(formspreeCall![0]).toBe("https://formspree.io/f/mykllwek");
+      expect(formspreeCall?.[0]).toBe("https://formspree.io/f/mykllwek");
     });
   });
 

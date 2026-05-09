@@ -7,7 +7,6 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import sharp from "sharp";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildTestApp, createMultipartPayload, loginAsAdmin, type TestApp } from "./test-server.js";
 
@@ -161,7 +160,7 @@ describe("Wrong file extension (magic byte detection)", () => {
 // ═══════════════════════════════════════════════════════════════════════════
 describe("Extreme filenames", () => {
   it("handles a 500-character filename without crashing", async () => {
-    const longName = "a".repeat(490) + ".png";
+    const longName = `${"a".repeat(490)}.png`;
     const { body, contentType } = createMultipartPayload([
       { name: "file", filename: longName, content: PNG_200x150, contentType: "image/png" },
       { name: "settings", content: JSON.stringify({ width: 100 }) },
@@ -449,7 +448,7 @@ describe("Unicode and special filenames", () => {
   });
 
   it("handles a very long filename (255 chars)", async () => {
-    const longName = "a".repeat(251) + ".png";
+    const longName = `${"a".repeat(251)}.png`;
     const { body, contentType } = createMultipartPayload([
       { name: "file", filename: longName, content: PNG_200x150, contentType: "image/png" },
       { name: "settings", content: JSON.stringify({ width: 100 }) },

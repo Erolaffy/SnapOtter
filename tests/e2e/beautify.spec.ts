@@ -1,4 +1,4 @@
-import { expect, test, uploadTestImage, waitForProcessing } from "./helpers";
+import { expect, test, uploadTestImage } from "./helpers";
 
 // ---------------------------------------------------------------------------
 // GUI E2E: Beautify Screenshot Tool

@@ -1,6 +1,6 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
-import { Readable, Writable } from "node:stream";
+import { Writable } from "node:stream";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock child_process.spawn before importing the bridge module
@@ -373,7 +373,7 @@ describe("bridge - runPythonWithProgress (per-request fallback)", () => {
       "ValueError: bad input",
     ].join("\n");
 
-    mock.stderr.emit("data", Buffer.from(traceback + "\n"));
+    mock.stderr.emit("data", Buffer.from(`${traceback}\n`));
     mock.emitEvent("close", 1, null);
 
     await expect(promise).rejects.toThrow("ValueError: bad input");
@@ -400,7 +400,7 @@ describe("bridge - runPythonWithProgress (per-request fallback)", () => {
         Array.isArray(call[1]) && call[1].some((arg: string) => arg.includes("/tmp/in.png")),
     );
     expect(perRequestCall).toBeDefined();
-    expect(perRequestCall![1]).toEqual(
+    expect(perRequestCall?.[1]).toEqual(
       expect.arrayContaining([
         expect.stringContaining("remove_bg.py"),
         "/tmp/in.png",
@@ -856,10 +856,10 @@ describe("bridge - dispatcher lifecycle via runPythonWithProgress", () => {
 
   it("dispatcher ready signal sets dispatcherReady and processes requests via dispatcher", async () => {
     const mockDispatcher = createMockProcess();
-    let callCount = 0;
+    let _callCount = 0;
 
     vi.mocked(spawn).mockImplementation(() => {
-      callCount++;
+      _callCount++;
       return mockDispatcher.process;
     });
 
@@ -1280,7 +1280,7 @@ describe("bridge - dispatcher stdin JSON-RPC protocol", () => {
 
     // Respond to complete the promise
     const response = JSON.stringify({ id: request.id, exitCode: 0, stdout: '{"success": true}' });
-    mock.stdout.emit("data", Buffer.from(response + "\n"));
+    mock.stdout.emit("data", Buffer.from(`${response}\n`));
 
     const result = await promise;
     expect(result.stdout).toBe('{"success": true}');
@@ -1299,7 +1299,7 @@ describe("bridge - dispatcher stdin JSON-RPC protocol", () => {
     // Complete the request properly to avoid a hanging retry
     mock.stdout.emit(
       "data",
-      Buffer.from(JSON.stringify({ id: request.id, exitCode: 0, stdout: "{}" }) + "\n"),
+      Buffer.from(`${JSON.stringify({ id: request.id, exitCode: 0, stdout: "{}" })}\n`),
     );
     await promise;
   });
@@ -1339,12 +1339,12 @@ describe("bridge - dispatcher stdin JSON-RPC protocol", () => {
     // Respond to the SECOND request first (out of order)
     mock.stdout.emit(
       "data",
-      Buffer.from(JSON.stringify({ id: id2, exitCode: 0, stdout: '{"result": "two"}' }) + "\n"),
+      Buffer.from(`${JSON.stringify({ id: id2, exitCode: 0, stdout: '{"result": "two"}' })}\n`),
     );
     // Then respond to the first
     mock.stdout.emit(
       "data",
-      Buffer.from(JSON.stringify({ id: id1, exitCode: 0, stdout: '{"result": "one"}' }) + "\n"),
+      Buffer.from(`${JSON.stringify({ id: id1, exitCode: 0, stdout: '{"result": "one"}' })}\n`),
     );
 
     const [r1, r2] = await Promise.all([promise1, promise2]);
@@ -1366,12 +1366,12 @@ describe("bridge - dispatcher stdin JSON-RPC protocol", () => {
     // Fail request #2
     mock.stdout.emit(
       "data",
-      Buffer.from(JSON.stringify({ id: idFail, exitCode: 1, stdout: "" }) + "\n"),
+      Buffer.from(`${JSON.stringify({ id: idFail, exitCode: 1, stdout: "" })}\n`),
     );
     // Succeed request #1
     mock.stdout.emit(
       "data",
-      Buffer.from(JSON.stringify({ id: idOk, exitCode: 0, stdout: '{"ok": true}' }) + "\n"),
+      Buffer.from(`${JSON.stringify({ id: idOk, exitCode: 0, stdout: '{"ok": true}' })}\n`),
     );
 
     await expect(promiseFail).rejects.toThrow("exited with code 1");
@@ -1388,7 +1388,7 @@ describe("bridge - dispatcher stdin JSON-RPC protocol", () => {
     const line = mock.stdinWrites.join("").split("\n").filter(Boolean)[0];
     const id = JSON.parse(line).id;
 
-    mock.stdout.emit("data", Buffer.from(JSON.stringify({ id, exitCode: 137, stdout: "" }) + "\n"));
+    mock.stdout.emit("data", Buffer.from(`${JSON.stringify({ id, exitCode: 137, stdout: "" })}\n`));
 
     await expect(promise).rejects.toThrow("out of memory");
   });
@@ -1402,7 +1402,7 @@ describe("bridge - dispatcher stdin JSON-RPC protocol", () => {
     const line = mock.stdinWrites.join("").split("\n").filter(Boolean)[0];
     const id = JSON.parse(line).id;
 
-    mock.stdout.emit("data", Buffer.from(JSON.stringify({ id, exitCode: 139, stdout: "" }) + "\n"));
+    mock.stdout.emit("data", Buffer.from(`${JSON.stringify({ id, exitCode: 139, stdout: "" })}\n`));
 
     await expect(promise).rejects.toThrow("segmentation fault");
   });
@@ -1421,7 +1421,7 @@ describe("bridge - dispatcher stdin JSON-RPC protocol", () => {
     // Now emit the real response
     mock.stdout.emit(
       "data",
-      Buffer.from(JSON.stringify({ id, exitCode: 0, stdout: '{"ok": true}' }) + "\n"),
+      Buffer.from(`${JSON.stringify({ id, exitCode: 0, stdout: '{"ok": true}' })}\n`),
     );
 
     const result = await promise;
@@ -1448,7 +1448,7 @@ describe("bridge - dispatcher stdin JSON-RPC protocol", () => {
     // Real response
     mock.stdout.emit(
       "data",
-      Buffer.from(JSON.stringify({ id: realId, exitCode: 0, stdout: '{"ok": true}' }) + "\n"),
+      Buffer.from(`${JSON.stringify({ id: realId, exitCode: 0, stdout: '{"ok": true}' })}\n`),
     );
 
     const result = await promise;
@@ -1464,7 +1464,7 @@ describe("bridge - dispatcher stdin JSON-RPC protocol", () => {
     const line = mock.stdinWrites.join("").split("\n").filter(Boolean)[0];
     const id = JSON.parse(line).id;
 
-    const fullResponse = JSON.stringify({ id, exitCode: 0, stdout: '{"ok": true}' }) + "\n";
+    const fullResponse = `${JSON.stringify({ id, exitCode: 0, stdout: '{"ok": true}' })}\n`;
     const half = Math.floor(fullResponse.length / 2);
 
     // Send in two chunks
@@ -1485,7 +1485,7 @@ describe("bridge - dispatcher stdin JSON-RPC protocol", () => {
     const id = JSON.parse(line).id;
 
     // Response without stdout field
-    mock.stdout.emit("data", Buffer.from(JSON.stringify({ id, exitCode: 0 }) + "\n"));
+    mock.stdout.emit("data", Buffer.from(`${JSON.stringify({ id, exitCode: 0 })}\n`));
 
     const result = await promise;
     expect(result.stdout).toBe("");
@@ -1506,7 +1506,7 @@ describe("bridge - dispatcher stdin JSON-RPC protocol", () => {
 
     mock.stdout.emit(
       "data",
-      Buffer.from(JSON.stringify({ id, exitCode: 0, stdout: '{"ok": true}' }) + "\n"),
+      Buffer.from(`${JSON.stringify({ id, exitCode: 0, stdout: '{"ok": true}' })}\n`),
     );
 
     const result = await promise;
@@ -1583,7 +1583,7 @@ describe("bridge - dispatcher request timeout", () => {
 describe("bridge - max consecutive crash threshold", () => {
   let runPythonWithProgress: typeof import("../../../packages/ai/src/bridge.js").runPythonWithProgress;
   let getDispatcherStatus: typeof import("../../../packages/ai/src/bridge.js").getDispatcherStatus;
-  let shutdownDispatcher: typeof import("../../../packages/ai/src/bridge.js").shutdownDispatcher;
+  let _shutdownDispatcher: typeof import("../../../packages/ai/src/bridge.js").shutdownDispatcher;
 
   beforeEach(async () => {
     vi.resetModules();
@@ -1592,7 +1592,7 @@ describe("bridge - max consecutive crash threshold", () => {
     const mod = await import("../../../packages/ai/src/bridge.js");
     runPythonWithProgress = mod.runPythonWithProgress;
     getDispatcherStatus = mod.getDispatcherStatus;
-    shutdownDispatcher = mod.shutdownDispatcher;
+    _shutdownDispatcher = mod.shutdownDispatcher;
   });
 
   afterEach(() => {
@@ -1894,7 +1894,7 @@ describe("bridge - concurrent dispatcher requests", () => {
       mock.stdout.emit(
         "data",
         Buffer.from(
-          JSON.stringify({ id: req.id, exitCode: 0, stdout: `{"script":"${req.script}"}` }) + "\n",
+          `${JSON.stringify({ id: req.id, exitCode: 0, stdout: `{"script":"${req.script}"}` })}\n`,
         ),
       );
     }
@@ -1922,16 +1922,16 @@ describe("bridge - concurrent dispatcher requests", () => {
     // Fail the middle request
     mock.stdout.emit(
       "data",
-      Buffer.from(JSON.stringify({ id: reqs[1].id, exitCode: 1, stdout: "" }) + "\n"),
+      Buffer.from(`${JSON.stringify({ id: reqs[1].id, exitCode: 1, stdout: "" })}\n`),
     );
     // Succeed the other two
     mock.stdout.emit(
       "data",
-      Buffer.from(JSON.stringify({ id: reqs[0].id, exitCode: 0, stdout: '{"r": "one"}' }) + "\n"),
+      Buffer.from(`${JSON.stringify({ id: reqs[0].id, exitCode: 0, stdout: '{"r": "one"}' })}\n`),
     );
     mock.stdout.emit(
       "data",
-      Buffer.from(JSON.stringify({ id: reqs[2].id, exitCode: 0, stdout: '{"r": "two"}' }) + "\n"),
+      Buffer.from(`${JSON.stringify({ id: reqs[2].id, exitCode: 0, stdout: '{"r": "two"}' })}\n`),
     );
 
     await expect(pFail).rejects.toThrow();
@@ -2007,11 +2007,11 @@ describe("bridge - concurrent dispatcher requests", () => {
     // Complete both requests
     mock.stdout.emit(
       "data",
-      Buffer.from(JSON.stringify({ id: reqs[0].id, exitCode: 0, stdout: "{}" }) + "\n"),
+      Buffer.from(`${JSON.stringify({ id: reqs[0].id, exitCode: 0, stdout: "{}" })}\n`),
     );
     mock.stdout.emit(
       "data",
-      Buffer.from(JSON.stringify({ id: reqs[1].id, exitCode: 0, stdout: "{}" }) + "\n"),
+      Buffer.from(`${JSON.stringify({ id: reqs[1].id, exitCode: 0, stdout: "{}" })}\n`),
     );
 
     await Promise.all([p1, p2]);
@@ -2063,11 +2063,11 @@ describe("bridge - extractPythonError via dispatcher responses", () => {
     mock.stdout.emit(
       "data",
       Buffer.from(
-        JSON.stringify({
+        `${JSON.stringify({
           id,
           exitCode: 1,
           stdout: '{"error": "CUDA out of memory"}',
-        }) + "\n",
+        })}\n`,
       ),
     );
 
@@ -2094,7 +2094,7 @@ describe("bridge - extractPythonError via dispatcher responses", () => {
     const id = JSON.parse(line).id;
 
     // Non-zero exit with the traceback captured in stderrLines
-    mock.stdout.emit("data", Buffer.from(JSON.stringify({ id, exitCode: 1, stdout: "" }) + "\n"));
+    mock.stdout.emit("data", Buffer.from(`${JSON.stringify({ id, exitCode: 1, stdout: "" })}\n`));
 
     await expect(promise).rejects.toThrow("RuntimeError: model not found");
   });
@@ -2108,7 +2108,7 @@ describe("bridge - extractPythonError via dispatcher responses", () => {
     const line = mock.stdinWrites.join("").split("\n").filter(Boolean)[0];
     const id = JSON.parse(line).id;
 
-    mock.stdout.emit("data", Buffer.from(JSON.stringify({ id, exitCode: 42, stdout: "" }) + "\n"));
+    mock.stdout.emit("data", Buffer.from(`${JSON.stringify({ id, exitCode: 42, stdout: "" })}\n`));
 
     await expect(promise).rejects.toThrow("exited with code 42");
   });

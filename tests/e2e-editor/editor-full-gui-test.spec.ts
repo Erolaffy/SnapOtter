@@ -244,7 +244,7 @@ test.describe("Image Editor - Full GUI Test Suite", () => {
     await page.goto("/editor");
     await page.waitForTimeout(2000);
     await createNewDocument(page);
-    const box = await getCanvasBox(page);
+    const _box = await getCanvasBox(page);
 
     // Activate crop via C key
     await page.keyboard.press("c");
@@ -253,7 +253,7 @@ test.describe("Image Editor - Full GUI Test Suite", () => {
     await snap(page, "crop-tool-active");
 
     // Verify crop options show aspect ratio
-    const cropOptions = page.getByText(/Free|1:1|4:3|16:9/);
+    const _cropOptions = page.getByText(/Free|1:1|4:3|16:9/);
     await snap(page, "crop-options-bar");
   });
 
@@ -272,13 +272,13 @@ test.describe("Image Editor - Full GUI Test Suite", () => {
     await snap(page, "layers-panel-default");
 
     // Add a new layer via + button
-    const addLayerBtn = page
+    const _addLayerBtn = page
       .locator("button")
       .filter({ has: page.locator("svg") })
       .locator("xpath=//button[contains(@class, 'items-center')]")
       .first();
     // Try clicking the + icon at bottom of layers panel
-    const plusButtons = page
+    const _plusButtons = page
       .locator('[data-testid="tab-layers"]')
       .locator("..")
       .locator("..")
@@ -324,7 +324,7 @@ test.describe("Image Editor - Full GUI Test Suite", () => {
     await snap(page, "color-panel-default");
 
     // Click foreground swatch to open picker
-    const fgSwatch = page.locator('[data-testid="color-foreground"]').or(
+    const _fgSwatch = page.locator('[data-testid="color-foreground"]').or(
       page
         .locator("button")
         .filter({ hasText: /Foreground/ })
@@ -424,7 +424,7 @@ test.describe("Image Editor - Full GUI Test Suite", () => {
     await snap(page, "history-with-actions");
 
     // Verify history entries exist
-    const historyEntries = page
+    const _historyEntries = page
       .locator('[data-testid="tab-history"]')
       .locator("..")
       .locator("..")
@@ -464,7 +464,7 @@ test.describe("Image Editor - Full GUI Test Suite", () => {
       ["g", "fill"],
     ];
 
-    for (const [key, expectedTool] of toolShortcuts) {
+    for (const [key, _expectedTool] of toolShortcuts) {
       await page.keyboard.press(key);
       await page.waitForTimeout(200);
       const activeTool = page.locator('[data-tool-active="true"]');
@@ -625,7 +625,7 @@ test.describe("Image Editor - Full GUI Test Suite", () => {
     await snap(page, "dodge-tool-active");
 
     // Check options show range and exposure
-    const optionsBar = page
+    const _optionsBar = page
       .locator("div")
       .filter({ hasText: /Range|Exposure|Dodge|Burn|Sponge/ })
       .first();

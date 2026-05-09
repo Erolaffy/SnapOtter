@@ -280,6 +280,97 @@ test.describe("GUI Settings - People Tab", () => {
     await page.getByRole("button", { name: /cancel/i }).click();
     await expect(page.getByText(/reset password for/i)).not.toBeVisible();
   });
+
+  test("editing a user role via Edit Role / Team succeeds", async ({ loggedInPage: page }) => {
+    const username = `guiedit-${UID}`;
+    const adminToken = await getAdminToken();
+
+    try {
+      // Create a user via API first
+      await fetch(`${API}/api/auth/register`, {
+        method: "POST",
+        headers: authJson(adminToken),
+        body: JSON.stringify({ username, password: "TestPass123!", role: "user" }),
+      });
+
+      await openSettings(page);
+      await page.getByRole("button", { name: /people/i }).click();
+      await page.waitForTimeout(500);
+
+      // Verify the user appears
+      await expect(page.getByText(username)).toBeVisible({ timeout: 5_000 });
+
+      // Open the actions menu for the test user (last Actions button)
+      await page.getByTitle("Actions").last().click();
+      await page.getByText("Edit Role / Team").click();
+
+      // The edit form should appear
+      await expect(page.getByText(/edit/i).first()).toBeVisible();
+
+      // Change role to editor
+      const roleSelect = page.locator("form select").first();
+      await roleSelect.selectOption("editor");
+
+      // Click Save
+      await page.getByRole("button", { name: /^save$/i }).click();
+
+      // Wait for the update to complete and verify no error
+      await page.waitForTimeout(1_000);
+
+      // The user row should still be visible (edit was successful)
+      await expect(page.getByText(username)).toBeVisible();
+    } finally {
+      await cleanupUsersByPrefix(adminToken, "guiedit-");
+    }
+  });
+
+  test("resetting password for a non-admin user succeeds", async ({ loggedInPage: page }) => {
+    const username = `guireset-${UID}`;
+    const adminToken = await getAdminToken();
+
+    try {
+      // Create a user via API
+      await fetch(`${API}/api/auth/register`, {
+        method: "POST",
+        headers: authJson(adminToken),
+        body: JSON.stringify({ username, password: "TestPass123!", role: "user" }),
+      });
+
+      await openSettings(page);
+      await page.getByRole("button", { name: /people/i }).click();
+      await page.waitForTimeout(500);
+
+      // Verify the user appears
+      await expect(page.getByText(username)).toBeVisible({ timeout: 5_000 });
+
+      // Open the actions menu for the test user (last Actions button)
+      await page.getByTitle("Actions").last().click();
+      await page.getByText("Reset Password").click();
+
+      // Fill in the new password
+      await expect(page.getByText(/reset password for/i)).toBeVisible();
+      await page.getByPlaceholder(/new password/i).fill("NewResetPass123!");
+
+      // Submit
+      await page.getByRole("button", { name: /reset password/i }).click();
+
+      // Should show success or dismiss the form
+      await page.waitForTimeout(1_000);
+      // The reset form should close on success
+      await expect(page.getByText(/reset password for/i)).not.toBeVisible({ timeout: 5_000 });
+    } finally {
+      await cleanupUsersByPrefix(adminToken, "guireset-");
+    }
+  });
+
+  test("user table shows role in uppercase badge format", async ({ loggedInPage: page }) => {
+    await openSettings(page);
+    await page.getByRole("button", { name: /people/i }).click();
+    await page.waitForTimeout(500);
+
+    // Admin user should show ADMIN role badge
+    await expect(page.getByText("ADMIN").first()).toBeVisible();
+  });
 });
 
 test.describe("GUI Settings - Teams Tab", () => {

@@ -42,6 +42,37 @@ test.describe("GUI Watermark & Overlay Tools", () => {
       await expect(submitBtn).toBeEnabled();
     });
 
+    test("shows color picker for watermark text", async ({ loggedInPage: page }) => {
+      await page.goto("/watermark-text");
+      await uploadTestImage(page);
+
+      await expect(page.locator("#watermark-text-color")).toBeVisible();
+    });
+
+    test("shows opacity slider", async ({ loggedInPage: page }) => {
+      await page.goto("/watermark-text");
+      await uploadTestImage(page);
+
+      await expect(page.locator("#watermark-text-opacity")).toBeVisible();
+    });
+
+    test("shows position dropdown with all options", async ({ loggedInPage: page }) => {
+      await page.goto("/watermark-text");
+      await uploadTestImage(page);
+
+      const select = page.locator("#watermark-text-position");
+      await expect(select).toBeVisible();
+      const options = select.locator("option");
+      await expect(options).toHaveCount(6); // center, top-left, top-right, bottom-left, bottom-right, tiled
+    });
+
+    test("shows rotation slider", async ({ loggedInPage: page }) => {
+      await page.goto("/watermark-text");
+      await uploadTestImage(page);
+
+      await expect(page.locator("#watermark-text-rotation")).toBeVisible();
+    });
+
     test("processes watermark and shows download", async ({ loggedInPage: page }) => {
       await page.goto("/watermark-text");
       await uploadTestImage(page);
@@ -83,6 +114,38 @@ test.describe("GUI Watermark & Overlay Tools", () => {
       // Should see a prompt to upload the watermark/logo image
       await expect(page.getByText(/watermark|logo|overlay/i).first()).toBeVisible();
     });
+
+    test("shows position dropdown with five options", async ({ loggedInPage: page }) => {
+      await page.goto("/watermark-image");
+      await uploadTestImage(page);
+
+      const select = page.locator("#watermark-image-position");
+      await expect(select).toBeVisible();
+      const options = select.locator("option");
+      await expect(options).toHaveCount(5); // center, top-left, top-right, bottom-left, bottom-right
+    });
+
+    test("shows opacity slider with percentage", async ({ loggedInPage: page }) => {
+      await page.goto("/watermark-image");
+      await uploadTestImage(page);
+
+      await expect(page.locator("#watermark-image-opacity")).toBeVisible();
+    });
+
+    test("shows scale slider with percentage", async ({ loggedInPage: page }) => {
+      await page.goto("/watermark-image");
+      await uploadTestImage(page);
+
+      await expect(page.locator("#watermark-image-scale")).toBeVisible();
+    });
+
+    test("submit disabled without watermark file", async ({ loggedInPage: page }) => {
+      await page.goto("/watermark-image");
+      await uploadTestImage(page);
+
+      const submitBtn = page.getByTestId("watermark-image-submit");
+      await expect(submitBtn).toBeDisabled();
+    });
   });
 
   // ========================================================================
@@ -112,6 +175,50 @@ test.describe("GUI Watermark & Overlay Tools", () => {
 
       await uploadTestImage(page);
       await expect(submitBtn).toBeEnabled();
+    });
+
+    test("shows text color picker", async ({ loggedInPage: page }) => {
+      await page.goto("/text-overlay");
+      await uploadTestImage(page);
+
+      await expect(page.locator("#text-overlay-color")).toBeVisible();
+    });
+
+    test("shows position dropdown with three options", async ({ loggedInPage: page }) => {
+      await page.goto("/text-overlay");
+      await uploadTestImage(page);
+
+      const select = page.locator("#text-overlay-position");
+      await expect(select).toBeVisible();
+      const options = select.locator("option");
+      await expect(options).toHaveCount(3); // top, center, bottom
+    });
+
+    test("shows drop shadow checkbox", async ({ loggedInPage: page }) => {
+      await page.goto("/text-overlay");
+      await uploadTestImage(page);
+
+      await expect(page.getByText("Drop Shadow")).toBeVisible();
+    });
+
+    test("background box checkbox reveals box color picker", async ({ loggedInPage: page }) => {
+      await page.goto("/text-overlay");
+      await uploadTestImage(page);
+
+      await expect(page.getByText("Background Box")).toBeVisible();
+
+      // Box color should NOT be visible by default
+      await expect(page.locator("#text-overlay-box-color")).not.toBeVisible();
+
+      // Check Background Box
+      await page
+        .locator("label")
+        .filter({ hasText: "Background Box" })
+        .locator("input[type='checkbox']")
+        .check();
+
+      // Box color picker should now appear
+      await expect(page.locator("#text-overlay-box-color")).toBeVisible();
     });
 
     test("processes text overlay and shows download", async ({ loggedInPage: page }) => {
@@ -144,6 +251,43 @@ test.describe("GUI Watermark & Overlay Tools", () => {
       await expect(page.getByText("Opacity").first()).toBeVisible();
       await expect(page.getByText("Blend Mode")).toBeVisible();
       await expect(page.getByTestId("compose-submit")).toBeVisible();
+    });
+
+    test("shows overlay image upload button", async ({ loggedInPage: page }) => {
+      await page.goto("/compose");
+
+      await expect(page.getByText("Overlay Image")).toBeVisible();
+      await expect(page.getByText("Choose overlay image")).toBeVisible();
+    });
+
+    test("shows X and Y position number inputs", async ({ loggedInPage: page }) => {
+      await page.goto("/compose");
+
+      await expect(page.locator("#compose-x-position")).toBeVisible();
+      await expect(page.locator("#compose-y-position")).toBeVisible();
+    });
+
+    test("shows opacity slider", async ({ loggedInPage: page }) => {
+      await page.goto("/compose");
+
+      await expect(page.locator("#compose-opacity")).toBeVisible();
+    });
+
+    test("blend mode dropdown has all options", async ({ loggedInPage: page }) => {
+      await page.goto("/compose");
+
+      const select = page.locator("#compose-blend-mode");
+      await expect(select).toBeVisible();
+      const options = select.locator("option");
+      await expect(options).toHaveCount(10); // Normal, Multiply, Screen, Overlay, Darken, Lighten, Hard Light, Soft Light, Difference, Exclusion
+    });
+
+    test("submit disabled without overlay file", async ({ loggedInPage: page }) => {
+      await page.goto("/compose");
+      await uploadTestImage(page);
+
+      const submitBtn = page.getByTestId("compose-submit");
+      await expect(submitBtn).toBeDisabled();
     });
   });
 
@@ -180,6 +324,73 @@ test.describe("GUI Watermark & Overlay Tools", () => {
       await uploadTestImage(page);
 
       await expect(page.getByTestId("border-submit")).toBeVisible();
+    });
+
+    test("shows border width slider", async ({ loggedInPage: page }) => {
+      await page.goto("/border");
+      await uploadTestImage(page);
+
+      await expect(page.locator("#border-width")).toBeVisible();
+    });
+
+    test("shows border color swatches", async ({ loggedInPage: page }) => {
+      await page.goto("/border");
+      await uploadTestImage(page);
+
+      await expect(page.locator("#border-color")).toBeVisible();
+    });
+
+    test("shows padding slider", async ({ loggedInPage: page }) => {
+      await page.goto("/border");
+      await uploadTestImage(page);
+
+      await expect(page.locator("#border-padding")).toBeVisible();
+    });
+
+    test("shows padding color swatches", async ({ loggedInPage: page }) => {
+      await page.goto("/border");
+      await uploadTestImage(page);
+
+      await expect(page.locator("#padding-color")).toBeVisible();
+    });
+
+    test("shows corner radius slider", async ({ loggedInPage: page }) => {
+      await page.goto("/border");
+      await uploadTestImage(page);
+
+      await expect(page.locator("#border-corner-radius")).toBeVisible();
+    });
+
+    test("shadow toggle reveals shadow controls", async ({ loggedInPage: page }) => {
+      await page.goto("/border");
+      await uploadTestImage(page);
+
+      // Shadow toggle switch
+      const shadowToggle = page.locator("button[role='switch'][aria-checked]").first();
+      await expect(shadowToggle).toBeVisible();
+
+      // Shadow blur should not be visible before toggle
+      await expect(page.locator("#shadow-blur")).not.toBeVisible();
+
+      // Toggle shadow on
+      await shadowToggle.click();
+
+      // Shadow controls should now appear
+      await expect(page.locator("#shadow-blur")).toBeVisible();
+      await expect(page.locator("#shadow-offset-x")).toBeVisible();
+      await expect(page.locator("#shadow-offset-y")).toBeVisible();
+      await expect(page.locator("#shadow-color")).toBeVisible();
+      await expect(page.locator("#shadow-opacity")).toBeVisible();
+    });
+
+    test("shows all preset buttons", async ({ loggedInPage: page }) => {
+      await page.goto("/border");
+      await uploadTestImage(page);
+
+      await expect(page.getByText("Polaroid").first()).toBeVisible();
+      await expect(page.getByText("Vintage").first()).toBeVisible();
+      await expect(page.getByText("Minimal").first()).toBeVisible();
+      await expect(page.getByText("Cinematic").first()).toBeVisible();
     });
 
     test("processes border and shows download", async ({ loggedInPage: page }) => {

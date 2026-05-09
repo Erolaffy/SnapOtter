@@ -97,14 +97,14 @@ describe("detectFaceLandmarks", () => {
     it("returns individual landmark points correctly", async () => {
       const result = await detectFaceLandmarks(FAKE_INPUT);
 
-      expect(result.landmarks!.leftEye).toEqual({ x: 100, y: 150 });
-      expect(result.landmarks!.rightEye).toEqual({ x: 200, y: 150 });
-      expect(result.landmarks!.eyeCenter).toEqual({ x: 150, y: 150 });
-      expect(result.landmarks!.chin).toEqual({ x: 150, y: 300 });
-      expect(result.landmarks!.forehead).toEqual({ x: 150, y: 80 });
-      expect(result.landmarks!.crown).toEqual({ x: 150, y: 50 });
-      expect(result.landmarks!.nose).toEqual({ x: 150, y: 200 });
-      expect(result.landmarks!.faceCenterX).toBe(150);
+      expect(result.landmarks?.leftEye).toEqual({ x: 100, y: 150 });
+      expect(result.landmarks?.rightEye).toEqual({ x: 200, y: 150 });
+      expect(result.landmarks?.eyeCenter).toEqual({ x: 150, y: 150 });
+      expect(result.landmarks?.chin).toEqual({ x: 150, y: 300 });
+      expect(result.landmarks?.forehead).toEqual({ x: 150, y: 80 });
+      expect(result.landmarks?.crown).toEqual({ x: 150, y: 50 });
+      expect(result.landmarks?.nose).toEqual({ x: 150, y: 200 });
+      expect(result.landmarks?.faceCenterX).toBe(150);
     });
 
     it("returns imageWidth and imageHeight from response", async () => {

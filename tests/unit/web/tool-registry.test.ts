@@ -475,7 +475,7 @@ describe("CropSettingsWrapper", () => {
   it("renders null when cropProps is undefined", () => {
     const entry = getToolRegistryEntry("crop");
     expect(entry).toBeDefined();
-    const { container } = renderSettings(entry!.Settings as never);
+    const { container } = renderSettings(entry?.Settings as never);
     expect(container.innerHTML).toBe("");
   });
 
@@ -493,7 +493,7 @@ describe("CropSettingsWrapper", () => {
       onAspectChange: vi.fn(),
       onGridToggle: vi.fn(),
     };
-    const { container } = renderSettings(entry!.Settings as never, { cropProps });
+    const { container } = renderSettings(entry?.Settings as never, { cropProps });
     expect(container).toBeDefined();
   });
 });
@@ -502,7 +502,7 @@ describe("EraseObjectSettingsWrapper", () => {
   it("renders null when eraserProps is undefined", () => {
     const entry = getToolRegistryEntry("erase-object");
     expect(entry).toBeDefined();
-    const { container } = renderSettings(entry!.Settings as never);
+    const { container } = renderSettings(entry?.Settings as never);
     expect(container.innerHTML).toBe("");
   });
 
@@ -515,7 +515,7 @@ describe("EraseObjectSettingsWrapper", () => {
       brushSize: 20,
       onBrushSizeChange: vi.fn(),
     };
-    const { container } = renderSettings(entry!.Settings as never, { eraserProps });
+    const { container } = renderSettings(entry?.Settings as never, { eraserProps });
     expect(container).toBeDefined();
   });
 });
@@ -524,7 +524,7 @@ describe("makeColorSettingsComponent", () => {
   it("adjust-colors Settings renders without throwing", () => {
     const entry = getToolRegistryEntry("adjust-colors");
     expect(entry).toBeDefined();
-    const { container } = renderSettings(entry!.Settings as never, {
+    const { container } = renderSettings(entry?.Settings as never, {
       onPreviewFilter: vi.fn(),
     });
     expect(container).toBeDefined();

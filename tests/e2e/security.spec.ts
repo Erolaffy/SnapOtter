@@ -30,10 +30,10 @@ function readTestImage(): { blob: Blob; buffer: Buffer } {
 }
 
 test.describe("Security: Path traversal", () => {
-  let token: string;
+  let _token: string;
 
   test.beforeAll(async () => {
-    token = await getAuthToken();
+    _token = await getAuthToken();
   });
 
   test("download rejects path traversal in jobId (..)", async () => {

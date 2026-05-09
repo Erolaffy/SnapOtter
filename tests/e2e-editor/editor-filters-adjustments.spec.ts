@@ -1,4 +1,4 @@
-import { createNewDocument, expect, loadTestImage, test } from "./helpers";
+import { expect, loadTestImage, test } from "./helpers";
 
 test.describe("Editor Filters and Adjustments", () => {
   test.beforeEach(async ({ editorPage: page }) => {

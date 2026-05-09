@@ -773,3 +773,216 @@ describe("File naming edge cases", () => {
     expect(result.downloadUrl).toContain(".webp");
   });
 });
+
+// ── SVG input to main endpoint ──────────────────────────────────
+describe("SVG input to main endpoint", () => {
+  it("optimizes SVG input to WebP via main route", async () => {
+    const res = await postTool({ format: "webp" }, SVG, "test.svg", "image/svg+xml");
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+    expect(result.downloadUrl).toContain(".webp");
+    expect(result.processedSize).toBeGreaterThan(0);
+  });
+
+  it("optimizes SVG input to PNG via main route", async () => {
+    const res = await postTool({ format: "png" }, SVG, "test.svg", "image/svg+xml");
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toContain(".png");
+  });
+});
+
+// ── Invalid image data to main endpoint ─────────────────────────
+describe("Invalid image data", () => {
+  it("returns 400 for corrupt image data on main endpoint", async () => {
+    const res = await postTool(
+      { format: "webp" },
+      Buffer.from("this is not an image file at all"),
+      "garbage.png",
+      "image/png",
+    );
+    expect(res.statusCode).toBe(400);
+  });
+});
+
+// ── Size reduction verification ─────────────────────────────────
+describe("Size reduction", () => {
+  it("reduces file size when optimizing large JPEG to WebP with low quality", async () => {
+    const large = readFileSync(join(FIXTURES, "content", "stress-large.jpg"));
+    const res = await postTool(
+      { format: "webp", quality: 30, maxWidth: 400 },
+      large,
+      "stress-large.jpg",
+      "image/jpeg",
+    );
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.processedSize).toBeLessThan(large.length);
+    expect(result.processedSize).toBeGreaterThan(0);
+  });
+});
+
+// ── Output format and dimensions deep verification ──────────────
+describe("Output format deep verification", () => {
+  it("WebP output has correct format and positive dimensions", async () => {
+    const res = await postTool({ format: "webp", quality: 70 });
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+
+    const dlRes = await app.inject({
+      method: "GET",
+      url: result.downloadUrl,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const meta = await sharp(dlRes.rawPayload).metadata();
+    expect(meta.format).toBe("webp");
+    expect(meta.width).toBeGreaterThan(0);
+    expect(meta.height).toBeGreaterThan(0);
+  });
+
+  it("AVIF output has correct format and positive dimensions", async () => {
+    const res = await postTool({ format: "avif", quality: 50 });
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+
+    const dlRes = await app.inject({
+      method: "GET",
+      url: result.downloadUrl,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const meta = await sharp(dlRes.rawPayload).metadata();
+    expect(meta.format).toBe("heif");
+    expect(meta.width).toBeGreaterThan(0);
+    expect(meta.height).toBeGreaterThan(0);
+  });
+
+  it("JPEG output preserves original dimensions when no resize applied", async () => {
+    const res = await postTool({ format: "jpeg" });
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+
+    const dlRes = await app.inject({
+      method: "GET",
+      url: result.downloadUrl,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const meta = await sharp(dlRes.rawPayload).metadata();
+    expect(meta.format).toBe("jpeg");
+    expect(meta.width).toBe(200);
+    expect(meta.height).toBe(150);
+  });
+});
+
+// ── MaxWidth and maxHeight with different input formats ──────────
+describe("Resize with different input formats", () => {
+  it("constrains JPEG input with maxWidth and maxHeight", async () => {
+    const res = await postTool(
+      { format: "webp", maxWidth: 60, maxHeight: 60 },
+      JPG,
+      "test.jpg",
+      "image/jpeg",
+    );
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+
+    const dlRes = await app.inject({
+      method: "GET",
+      url: result.downloadUrl,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const meta = await sharp(dlRes.rawPayload).metadata();
+    expect(meta.width).toBeLessThanOrEqual(60);
+    expect(meta.height).toBeLessThanOrEqual(60);
+  });
+
+  it("constrains WebP input with maxWidth", async () => {
+    const res = await postTool({ format: "jpeg", maxWidth: 30 }, WEBP, "test.webp", "image/webp");
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+
+    const dlRes = await app.inject({
+      method: "GET",
+      url: result.downloadUrl,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const meta = await sharp(dlRes.rawPayload).metadata();
+    expect(meta.width).toBeLessThanOrEqual(30);
+  });
+});
+
+// ── Combined progressive + quality + resize ─────────────────────
+describe("Combined parameter variations", () => {
+  it("applies progressive + quality + maxWidth + stripMetadata simultaneously", async () => {
+    const exifJpg = readFileSync(join(FIXTURES, "test-with-exif.jpg"));
+    const res = await postTool(
+      { format: "jpeg", quality: 50, maxWidth: 100, progressive: true, stripMetadata: true },
+      exifJpg,
+      "combo.jpg",
+      "image/jpeg",
+    );
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+
+    const dlRes = await app.inject({
+      method: "GET",
+      url: result.downloadUrl,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const meta = await sharp(dlRes.rawPayload).metadata();
+    expect(meta.format).toBe("jpeg");
+    expect(meta.width).toBeLessThanOrEqual(100);
+    expect(!meta.exif || meta.exif.length === 0).toBe(true);
+  });
+});
+
+// ── MaxWidth of 1 (extreme constraint) ──────────────────────────
+describe("Extreme resize constraints", () => {
+  it("handles maxWidth of 1", async () => {
+    const res = await postTool({ format: "webp", maxWidth: 1 });
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+
+    const dlRes = await app.inject({
+      method: "GET",
+      url: result.downloadUrl,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const meta = await sharp(dlRes.rawPayload).metadata();
+    expect(meta.width).toBe(1);
+  });
+
+  it("handles maxHeight of 1", async () => {
+    const res = await postTool({ format: "png", maxHeight: 1 });
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+
+    const dlRes = await app.inject({
+      method: "GET",
+      url: result.downloadUrl,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const meta = await sharp(dlRes.rawPayload).metadata();
+    expect(meta.height).toBe(1);
+  });
+});
+
+// ── Response structure verification ─────────────────────────────
+describe("Response structure", () => {
+  it("returns all expected fields in 200 response", async () => {
+    const res = await postTool({ format: "webp" });
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+
+    expect(result).toHaveProperty("jobId");
+    expect(result).toHaveProperty("downloadUrl");
+    expect(result).toHaveProperty("originalSize");
+    expect(result).toHaveProperty("processedSize");
+    expect(typeof result.jobId).toBe("string");
+    expect(typeof result.downloadUrl).toBe("string");
+    expect(typeof result.originalSize).toBe("number");
+    expect(typeof result.processedSize).toBe("number");
+    expect(result.originalSize).toBeGreaterThan(0);
+    expect(result.processedSize).toBeGreaterThan(0);
+  });
+});

@@ -48,10 +48,10 @@ test.describe("Editor Rulers and Guides", () => {
     // Ruler should have a fixed height of 20px (RULER_SIZE)
     const box = await horizontalRuler.boundingBox();
     expect(box).not.toBeNull();
-    expect(box!.height).toBe(20);
+    expect(box?.height).toBe(20);
 
     // Ruler should stretch to full width (w-full class)
-    expect(box!.width).toBeGreaterThan(100);
+    expect(box?.width).toBeGreaterThan(100);
   });
 
   test("vertical ruler appears at left edge", async ({ editorPage: page }) => {
@@ -65,9 +65,9 @@ test.describe("Editor Rulers and Guides", () => {
     // Ruler should have a fixed width of 20px (RULER_SIZE)
     const box = await verticalRuler.boundingBox();
     expect(box).not.toBeNull();
-    expect(box!.width).toBe(20);
+    expect(box?.width).toBe(20);
 
     // Ruler should stretch to fill the available height
-    expect(box!.height).toBeGreaterThan(100);
+    expect(box?.height).toBeGreaterThan(100);
   });
 });

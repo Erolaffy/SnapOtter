@@ -1,5 +1,4 @@
 import { expect, test } from "@playwright/test";
-import { login } from "./helpers";
 
 // Tests the AuthGuard redirect behavior: fresh users get redirected
 // to /analytics-consent, accepted users do not.

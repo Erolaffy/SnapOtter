@@ -20,7 +20,7 @@ function buildMultipart(
   }>,
   fields: Array<{ name: string; value: string }>,
 ): { body: Buffer; contentType: string } {
-  const boundary = "----PlaywrightBoundary" + Date.now();
+  const boundary = `----PlaywrightBoundary${Date.now()}`;
   const parts: Buffer[] = [];
   for (const file of files) {
     parts.push(

@@ -533,6 +533,139 @@ describe("watermark-image", () => {
     expect(json.processedSize).toBeGreaterThan(0);
   });
 
+  // ── SVG main image input ──────────────────────────────────────────
+
+  it("processes SVG main image with watermark", async () => {
+    const SVG = readFileSync(join(FIXTURES, "test-100x100.svg"));
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "icon.svg", contentType: "image/svg+xml", content: SVG },
+      { name: "watermark", filename: "wm.png", contentType: "image/png", content: SMALL_PNG },
+      { name: "settings", content: JSON.stringify({ scale: 20, position: "center" }) },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/watermark-image",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const json = JSON.parse(res.body);
+    expect(json.downloadUrl).toBeDefined();
+  });
+
+  // ── Output dimensions preserved ─────────────────────────────────
+
+  it("preserves main image dimensions after watermark", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "main.png", contentType: "image/png", content: PNG },
+      { name: "watermark", filename: "wm.jpg", contentType: "image/jpeg", content: JPG },
+      { name: "settings", content: JSON.stringify({ scale: 20, position: "bottom-left" }) },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/watermark-image",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const json = JSON.parse(res.body);
+    const dlRes = await app.inject({
+      method: "GET",
+      url: json.downloadUrl,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const sharp = (await import("sharp")).default;
+    const meta = await sharp(dlRes.rawPayload).metadata();
+    expect(meta.width).toBe(200);
+    expect(meta.height).toBe(150);
+  });
+
+  // ── TIFF watermark image ────────────────────────────────────────
+
+  it("processes TIFF format watermark image", async () => {
+    const TIFF = readFileSync(join(FIXTURES, "formats", "sample.tiff"));
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "main.png", contentType: "image/png", content: PNG },
+      { name: "watermark", filename: "wm.tiff", contentType: "image/tiff", content: TIFF },
+      { name: "settings", content: JSON.stringify({ scale: 15, position: "top-left" }) },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/watermark-image",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const json = JSON.parse(res.body);
+    expect(json.downloadUrl).toBeDefined();
+  });
+
+  // ── Scale 50 with all positions ─────────────────────────────────
+
+  it("applies medium scale (50) at bottom-left position", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "main.png", contentType: "image/png", content: PNG },
+      { name: "watermark", filename: "wm.png", contentType: "image/png", content: SMALL_PNG },
+      {
+        name: "settings",
+        content: JSON.stringify({ scale: 50, opacity: 75, position: "bottom-left" }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/watermark-image",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+  });
+
+  // ── Rejects scale below minimum ─────────────────────────────────
+
+  it("rejects scale below minimum (0)", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "main.png", contentType: "image/png", content: PNG },
+      { name: "watermark", filename: "wm.png", contentType: "image/png", content: SMALL_PNG },
+      { name: "settings", content: JSON.stringify({ scale: 0 }) },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/watermark-image",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  // ── Rejects negative opacity ────────────────────────────────────
+
+  it("rejects negative opacity", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "main.png", contentType: "image/png", content: PNG },
+      { name: "watermark", filename: "wm.png", contentType: "image/png", content: SMALL_PNG },
+      { name: "settings", content: JSON.stringify({ opacity: -1 }) },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/watermark-image",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
   // ── WebP watermark image ─────────────────────────────────────────
 
   it("processes WebP watermark image", async () => {

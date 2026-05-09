@@ -891,6 +891,185 @@ describe("Border", () => {
     expect(res.statusCode).toBe(400);
   });
 
+  it("rejects invalid padding color format", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.png", contentType: "image/png", content: PNG },
+      {
+        name: "settings",
+        content: JSON.stringify({ borderWidth: 5, padding: 10, paddingColor: "white" }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/border",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("handles TIFF input format", async () => {
+    const TIFF = readFileSync(join(FIXTURES, "formats", "sample.tiff"));
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.tiff", contentType: "image/tiff", content: TIFF },
+      {
+        name: "settings",
+        content: JSON.stringify({ borderWidth: 8, borderColor: "#FF00FF" }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/border",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.processedSize).toBeGreaterThan(0);
+  });
+
+  it("handles BMP input format", async () => {
+    const BMP = readFileSync(join(FIXTURES, "formats", "sample.bmp"));
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.bmp", contentType: "image/bmp", content: BMP },
+      {
+        name: "settings",
+        content: JSON.stringify({ borderWidth: 5, borderColor: "#00FFFF" }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/border",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.processedSize).toBeGreaterThan(0);
+  });
+
+  it("applies border + padding + corner radius + shadow all together", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.png", contentType: "image/png", content: PNG },
+      {
+        name: "settings",
+        content: JSON.stringify({
+          borderWidth: 15,
+          borderColor: "#112233",
+          padding: 10,
+          paddingColor: "#EEDDCC",
+          cornerRadius: 25,
+          shadow: true,
+          shadowBlur: 12,
+          shadowOffsetX: 4,
+          shadowOffsetY: 4,
+          shadowColor: "#444444",
+          shadowOpacity: 70,
+        }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/border",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.processedSize).toBeGreaterThan(0);
+    const dlRes = await app.inject({
+      method: "GET",
+      url: result.downloadUrl,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const meta = await sharp(dlRes.rawPayload).metadata();
+    expect(meta.format).toBe("png");
+    expect(meta.channels).toBe(4);
+    // Canvas should be larger than original + padding + border due to shadow spread
+    expect(meta.width!).toBeGreaterThan(200 + 10 * 2 + 15 * 2);
+    expect(meta.height!).toBeGreaterThan(150 + 10 * 2 + 15 * 2);
+  });
+
+  it("rejects shadow offset exceeding max (+51)", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.png", contentType: "image/png", content: PNG },
+      {
+        name: "settings",
+        content: JSON.stringify({
+          borderWidth: 5,
+          borderColor: "#000000",
+          shadow: true,
+          shadowOffsetX: 51,
+          shadowOffsetY: 0,
+        }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/border",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("rejects shadow blur exceeding max (>200)", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.png", contentType: "image/png", content: PNG },
+      {
+        name: "settings",
+        content: JSON.stringify({
+          borderWidth: 5,
+          borderColor: "#000000",
+          shadow: true,
+          shadowBlur: 201,
+        }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/border",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("rejects corner radius exceeding max (>2000)", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.png", contentType: "image/png", content: PNG },
+      {
+        name: "settings",
+        content: JSON.stringify({
+          borderWidth: 5,
+          borderColor: "#000000",
+          cornerRadius: 2001,
+        }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/border",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
   // ── Max padding value ────────────────────────────────────────────
 
   it("applies maximum padding (200)", async () => {

@@ -1,4 +1,4 @@
-import { expect, test } from "./helpers";
+import { expect, openSettings, test } from "./helpers";
 
 // ---------------------------------------------------------------------------
 // Helper: the correct modifier key for the OS running Playwright
@@ -195,5 +195,110 @@ test.describe("Keyboard Shortcuts - Input Suppression", () => {
 
     // Should still be on fullscreen since shortcut was suppressed
     await expect(page).toHaveURL("/fullscreen");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Escape key behavior
+// ---------------------------------------------------------------------------
+test.describe("Keyboard Shortcuts - Escape Key", () => {
+  test("Escape closes the settings dialog", async ({ loggedInPage: page }) => {
+    await openSettings(page);
+
+    await expect(page.getByRole("dialog")).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(300);
+
+    await expect(page.getByRole("dialog")).not.toBeVisible();
+  });
+
+  test("Escape closes the help dialog", async ({ loggedInPage: page }) => {
+    await page.locator("aside").getByText("Help").click();
+
+    await expect(page.getByRole("heading", { name: "Help" })).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(300);
+
+    await expect(page.getByRole("heading", { name: "Help" })).not.toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Shortcut suppression in textarea and contenteditable
+// ---------------------------------------------------------------------------
+test.describe("Keyboard Shortcuts - Textarea Suppression", () => {
+  test("Cmd/Ctrl+/ does not navigate when focused on textarea", async ({ loggedInPage: page }) => {
+    // Navigate to a tool that has a textarea (watermark-text has text input)
+    await page.goto("/watermark-text");
+
+    // Find a textarea or contenteditable element on the page
+    const textarea = page.locator("textarea").first();
+    if (await textarea.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await textarea.click();
+
+      await page.keyboard.press(`${MOD}+/`);
+      await page.waitForTimeout(300);
+
+      // Should still be on watermark-text since shortcut was suppressed in textarea
+      await expect(page).toHaveURL("/watermark-text");
+    }
+  });
+
+  test("Cmd/Ctrl+Shift+D does not toggle theme when focused on a textarea", async ({
+    loggedInPage: page,
+  }) => {
+    await page.goto("/watermark-text");
+
+    const textarea = page.locator("textarea").first();
+    if (await textarea.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await textarea.click();
+
+      const hadDark = await page.evaluate(() =>
+        document.documentElement.classList.contains("dark"),
+      );
+
+      await page.keyboard.press(`${MOD}+Shift+d`);
+      await page.waitForTimeout(300);
+
+      const hasDark = await page.evaluate(() =>
+        document.documentElement.classList.contains("dark"),
+      );
+
+      // Theme should NOT have changed since we were in a textarea
+      expect(hasDark).toBe(hadDark);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Keyboard accessibility - focus management
+// ---------------------------------------------------------------------------
+test.describe("Keyboard Accessibility", () => {
+  test("Tab key cycles through interactive elements on home page", async ({
+    loggedInPage: page,
+  }) => {
+    // Press Tab several times and verify focus moves to interactive elements
+    await page.keyboard.press("Tab");
+    await page.waitForTimeout(100);
+
+    // After tabbing, some element should be focused
+    const focusedTag = await page.evaluate(() => document.activeElement?.tagName?.toLowerCase());
+    expect(["a", "button", "input", "select", "textarea"]).toContain(focusedTag);
+  });
+
+  test("search input is reachable via keyboard", async ({ loggedInPage: page }) => {
+    // Cmd+K should focus the search bar without needing to Tab to it
+    await page.keyboard.press(`${MOD}+k`);
+
+    const searchInput = page.getByPlaceholder(/search/i).first();
+    await expect(searchInput).toBeFocused();
+
+    // Typing should filter tools
+    await page.keyboard.type("resize");
+    await page.waitForTimeout(300);
+
+    await expect(page.getByText("Resize").first()).toBeVisible();
   });
 });

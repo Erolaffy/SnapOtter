@@ -165,6 +165,68 @@ base.describe("RBAC Settings Visibility - Admin", () => {
     const count = await navButtons.count();
     expect(count).toBe(12);
   });
+
+  base.test("admin can navigate to System Settings and see configuration", async ({ page }) => {
+    await page.goto("/");
+    await openSettings(page);
+    await page.getByRole("button", { name: /system settings/i }).click();
+
+    await expect(page.locator("h3").filter({ hasText: "System Settings" })).toBeVisible();
+    await expect(page.getByText("File Upload Limit (MB)")).toBeVisible();
+    await expect(page.getByText("Default Theme")).toBeVisible();
+  });
+
+  base.test("admin can navigate to Teams tab and see team list", async ({ page }) => {
+    await page.goto("/");
+    await openSettings(page);
+    await page.getByRole("button", { name: /teams/i }).click();
+
+    await expect(page.locator("h3").filter({ hasText: "Teams" })).toBeVisible();
+    await expect(page.getByText("Default").first()).toBeVisible();
+  });
+
+  base.test("admin can navigate to Roles tab and see built-in roles", async ({ page }) => {
+    await page.goto("/");
+    await openSettings(page);
+    await page.getByRole("button", { name: /^roles$/i }).click();
+
+    await expect(page.locator("h3").filter({ hasText: "Roles" })).toBeVisible();
+    await expect(page.getByText("Built-in").first()).toBeVisible();
+  });
+
+  base.test("admin can navigate to AI Features tab", async ({ page }) => {
+    await page.goto("/");
+    await openSettings(page);
+    await page.getByRole("button", { name: /ai features/i }).click();
+
+    await expect(page.locator("h3").filter({ hasText: "AI Features" })).toBeVisible();
+  });
+
+  base.test("admin has full API access to admin endpoints", async ({ page }) => {
+    await page.goto("/");
+
+    const token = await page.evaluate(() => localStorage.getItem("snapotter-token"));
+    expect(token).toBeTruthy();
+    const bearerToken = token as string;
+
+    // GET /api/auth/users requires users:manage
+    const usersRes = await fetch(`${API}/api/auth/users`, {
+      headers: { Authorization: `Bearer ${bearerToken}` },
+    });
+    expect(usersRes.status).toBe(200);
+
+    // GET /api/v1/settings requires settings:read
+    const settingsRes = await fetch(`${API}/api/v1/settings`, {
+      headers: { Authorization: `Bearer ${bearerToken}` },
+    });
+    expect(settingsRes.status).toBe(200);
+
+    // GET /api/v1/audit-log requires audit:read
+    const auditRes = await fetch(`${API}/api/v1/audit-log`, {
+      headers: { Authorization: `Bearer ${bearerToken}` },
+    });
+    expect(auditRes.status).toBe(200);
+  });
 });
 
 base.describe("RBAC Settings Visibility - Editor", () => {
@@ -240,6 +302,46 @@ base.describe("RBAC Settings Visibility - Editor", () => {
 
     await expect(page.getByRole("button", { name: /generate api key/i })).toBeVisible();
   });
+
+  base.test("editor can access Tools tab and see tool toggles", async ({ page }) => {
+    await login(page, EDITOR_USER, EDITOR_PASS);
+    await openSettings(page);
+    await page.getByRole("button", { name: /tools/i }).click();
+
+    await expect(page.locator("h3").filter({ hasText: "Tools" }).first()).toBeVisible();
+    await expect(page.getByText(/\d+ tools? disabled/)).toBeVisible({ timeout: 5_000 });
+  });
+
+  base.test("editor gets 403 on admin API endpoints", async ({ page }) => {
+    await login(page, EDITOR_USER, EDITOR_PASS);
+
+    const token = await page.evaluate(() => localStorage.getItem("snapotter-token"));
+    expect(token).toBeTruthy();
+    const bearerToken = token as string;
+
+    // GET /api/auth/users requires users:manage -- editor does not have this
+    const usersRes = await fetch(`${API}/api/auth/users`, {
+      headers: { Authorization: `Bearer ${bearerToken}` },
+    });
+    expect(usersRes.status).toBe(403);
+
+    // PUT /api/v1/settings requires settings:write -- editor does not have this
+    const settingsRes = await fetch(`${API}/api/v1/settings`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${bearerToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ testSetting: "hacked" }),
+    });
+    expect(settingsRes.status).toBe(403);
+
+    // GET /api/v1/audit-log requires audit:read -- editor does not have this
+    const auditRes = await fetch(`${API}/api/v1/audit-log`, {
+      headers: { Authorization: `Bearer ${bearerToken}` },
+    });
+    expect(auditRes.status).toBe(403);
+  });
 });
 
 base.describe("RBAC Settings Visibility - User", () => {
@@ -310,5 +412,86 @@ base.describe("RBAC Settings Visibility - User", () => {
     // General is the default tab; should show the user's username and role
     await expect(page.getByText(USER_USER)).toBeVisible({ timeout: 5_000 });
     await expect(page.getByText("user").first()).toBeVisible();
+  });
+
+  base.test("user can access Tools tab and see tool toggles", async ({ page }) => {
+    await login(page, USER_USER, USER_PASS);
+    await openSettings(page);
+    await page.getByRole("button", { name: /tools/i }).click();
+
+    await expect(page.locator("h3").filter({ hasText: "Tools" }).first()).toBeVisible();
+    await expect(page.getByText(/\d+ tools? disabled/)).toBeVisible({ timeout: 5_000 });
+  });
+
+  base.test("user can access Security tab and change password form", async ({ page }) => {
+    await login(page, USER_USER, USER_PASS);
+    await openSettings(page);
+    await page.getByRole("button", { name: /security/i }).click();
+
+    await expect(page.getByText("Change Password").first()).toBeVisible();
+    await expect(page.getByPlaceholder("Current Password")).toBeVisible();
+  });
+
+  base.test("user can access Product Analytics tab", async ({ page }) => {
+    await login(page, USER_USER, USER_PASS);
+    await openSettings(page);
+    await page.getByRole("button", { name: /product analytics/i }).click();
+
+    await expect(page.getByText("Product Analytics").first()).toBeVisible();
+  });
+
+  base.test("user gets 403 on admin and editor API endpoints", async ({ page }) => {
+    await login(page, USER_USER, USER_PASS);
+
+    const token = await page.evaluate(() => localStorage.getItem("snapotter-token"));
+    expect(token).toBeTruthy();
+    const bearerToken = token as string;
+
+    // GET /api/auth/users requires users:manage
+    const usersRes = await fetch(`${API}/api/auth/users`, {
+      headers: { Authorization: `Bearer ${bearerToken}` },
+    });
+    expect(usersRes.status).toBe(403);
+
+    // PUT /api/v1/settings requires settings:write
+    const settingsRes = await fetch(`${API}/api/v1/settings`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${bearerToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ testSetting: "hacked" }),
+    });
+    expect(settingsRes.status).toBe(403);
+
+    // GET /api/v1/audit-log requires audit:read
+    const auditRes = await fetch(`${API}/api/v1/audit-log`, {
+      headers: { Authorization: `Bearer ${bearerToken}` },
+    });
+    expect(auditRes.status).toBe(403);
+
+    // GET /api/v1/teams requires teams:manage
+    const teamsRes = await fetch(`${API}/api/v1/teams`, {
+      headers: { Authorization: `Bearer ${bearerToken}` },
+    });
+    expect(teamsRes.status).toBe(403);
+  });
+
+  base.test("user can still navigate to a tool page and use it", async ({ page }) => {
+    await login(page, USER_USER, USER_PASS);
+
+    // Navigate to the resize tool page -- user role should have tools:use permission
+    await page.goto("/resize");
+    await page.waitForLoadState("networkidle");
+
+    // The tool page should load (not redirect or show a 403)
+    // Look for the dropzone or tool heading
+    const dropzone = page.locator("[class*='border-dashed']");
+    const toolHeading = page.getByText("Resize").first();
+
+    const dropzoneVisible = await dropzone.isVisible().catch(() => false);
+    const headingVisible = await toolHeading.isVisible().catch(() => false);
+
+    expect(dropzoneVisible || headingVisible).toBe(true);
   });
 });

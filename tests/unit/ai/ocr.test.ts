@@ -192,9 +192,9 @@ describe("extractText", () => {
     it("scales timeout for large images", async () => {
       // We need sharp to return large dimensions for the resized buffer
       // First call resizes the input, second call reads metadata of the resized buffer
-      let callCount = 0;
+      let _callCount = 0;
       vi.mocked(sharp).mockImplementation(() => {
-        callCount++;
+        _callCount++;
         return {
           resize: vi.fn().mockReturnThis(),
           png: vi.fn().mockReturnThis(),

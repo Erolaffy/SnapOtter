@@ -73,7 +73,7 @@ describe("sanitizeFilename", () => {
   });
 
   it("truncates very long filenames over 200 bytes", () => {
-    const longName = "a".repeat(300) + ".png";
+    const longName = `${"a".repeat(300)}.png`;
     const result = sanitizeFilename(longName);
     expect(new TextEncoder().encode(result).length).toBeLessThanOrEqual(200);
     expect(result).toMatch(/\.png$/);
@@ -114,7 +114,7 @@ describe("sanitizeFilename", () => {
   });
 
   it("truncates long unicode filenames correctly", () => {
-    const longUnicode = "\u{1F600}".repeat(100) + ".png";
+    const longUnicode = `${"\u{1F600}".repeat(100)}.png`;
     const result = sanitizeFilename(longUnicode);
     expect(new TextEncoder().encode(result).length).toBeLessThanOrEqual(200);
     expect(result).toMatch(/\.png$/);

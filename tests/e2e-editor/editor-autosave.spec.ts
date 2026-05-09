@@ -19,7 +19,7 @@ test.describe("Editor Autosave", () => {
     // Set a shorter timeout by marking the state as dirty and waiting.
     await page.evaluate(() => {
       const key = "snapotter-editor-autosave";
-      const state = (window as Record<string, unknown>).__ZUSTAND_STORE__;
+      const _state = (window as Record<string, unknown>).__ZUSTAND_STORE__;
       // Fallback: write autosave data directly using the store's serialize format
       const storeState = JSON.parse(
         JSON.stringify({

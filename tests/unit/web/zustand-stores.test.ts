@@ -1315,7 +1315,7 @@ describe("usePdfToImageStore", () => {
 
     expect(capturedFormData).not.toBeNull();
     // FormData.get works in jsdom when appended synchronously
-    const settings = capturedFormData!.get("settings");
+    const settings = capturedFormData?.get("settings");
     expect(settings).not.toBeNull();
     const parsed = JSON.parse(settings as string);
     expect(parsed.pages).toBe("all");
@@ -1342,7 +1342,7 @@ describe("usePdfToImageStore", () => {
     await usePdfToImageStore.getState().convert();
 
     expect(capturedFormData).not.toBeNull();
-    const settings = capturedFormData!.get("settings");
+    const settings = capturedFormData?.get("settings");
     expect(settings).not.toBeNull();
     const parsed = JSON.parse(settings as string);
     expect(parsed.pages).toBe("1-2");

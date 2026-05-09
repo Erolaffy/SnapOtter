@@ -755,6 +755,146 @@ test.describe("AI Feature Bundle Status", () => {
   });
 });
 
+// ─── Transparency Fixer ────────────────────────────────────────────
+
+test.describe("Transparency Fixer", () => {
+  test("transparency fixer returns 202 or 501", async ({ request }) => {
+    const portrait = contentFixture("portrait-color.jpg");
+    const res = await request.post("/api/v1/tools/transparency-fixer", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "portrait.jpg", mimeType: "image/jpeg", buffer: portrait },
+        settings: JSON.stringify({}),
+      },
+    });
+
+    if (res.status() === 501) {
+      const body = await res.json();
+      expect(body.code).toBe("FEATURE_NOT_INSTALLED");
+      expect(body.feature).toBe("background-removal");
+    } else {
+      // Async tool returns 202
+      expect(res.status()).toBe(202);
+      const body = await res.json();
+      expect(body.jobId).toBeTruthy();
+      expect(body.async).toBe(true);
+    }
+  });
+
+  test("transparency fixer with custom defringe", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/transparency-fixer", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "test.png", mimeType: "image/png", buffer: TINY_PNG },
+        settings: JSON.stringify({ defringe: 50, outputFormat: "png" }),
+      },
+    });
+
+    if (res.status() === 501) {
+      const body = await res.json();
+      expect(body.code).toBe("FEATURE_NOT_INSTALLED");
+    } else {
+      expect(res.status()).toBe(202);
+      const body = await res.json();
+      expect(body.jobId).toBeTruthy();
+    }
+  });
+
+  test("transparency fixer with webp output", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/transparency-fixer", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "test.jpg", mimeType: "image/jpeg", buffer: JPG_100x100 },
+        settings: JSON.stringify({ outputFormat: "webp" }),
+      },
+    });
+
+    if (res.status() === 501) {
+      const body = await res.json();
+      expect(body.code).toBe("FEATURE_NOT_INSTALLED");
+    } else {
+      expect(res.status()).toBe(202);
+      const body = await res.json();
+      expect(body.jobId).toBeTruthy();
+    }
+  });
+
+  test("transparency fixer rejects empty file", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/transparency-fixer", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        settings: JSON.stringify({}),
+      },
+    });
+    expect(res.ok()).toBe(false);
+    const body = await res.json();
+    expect(body.error).toBeDefined();
+  });
+});
+
+// ─── Smart Crop — Additional ──────────────────────────────────────
+
+test.describe("Smart Crop — additional", () => {
+  test("smart crop with square output", async ({ request }) => {
+    const portrait = contentFixture("portrait-color.jpg");
+    const result = await callAiTool(
+      request,
+      "smart-crop",
+      portrait,
+      { width: 500, height: 500 },
+      "portrait.jpg",
+      "image/jpeg",
+    );
+    if (!result.installed) {
+      test.skip();
+      return;
+    }
+    expect(result.ok).toBe(true);
+    expect(result.body.downloadUrl).toBeTruthy();
+  });
+
+  test("smart crop on multi-face image", async ({ request }) => {
+    const multiFace = contentFixture("multi-face.webp");
+    const result = await callAiTool(
+      request,
+      "smart-crop",
+      multiFace,
+      { width: 300, height: 300 },
+      "multi-face.webp",
+      "image/webp",
+    );
+    if (!result.installed) {
+      test.skip();
+      return;
+    }
+    expect(result.ok).toBe(true);
+    expect(result.body.downloadUrl).toBeTruthy();
+  });
+});
+
+// ─── Colorize — Additional ───────────────────────────────────────
+
+test.describe("Colorize — additional", () => {
+  test("colorize with auto model", async ({ request }) => {
+    const bwPortrait = contentFixture("portrait-bw.jpeg");
+    const result = await callAiTool(
+      request,
+      "colorize",
+      bwPortrait,
+      { model: "auto" },
+      "bw.jpeg",
+      "image/jpeg",
+    );
+    if (!result.installed) {
+      test.skip();
+      return;
+    }
+    expect(result.ok).toBe(true);
+    expect(result.body.downloadUrl).toBeTruthy();
+    expect(result.body.processedSize).toBeGreaterThan(0);
+  });
+});
+
 // ─── Auth Failure ──────────────────────────────────────────────────
 
 test.describe("Auth failure", () => {
@@ -780,6 +920,36 @@ test.describe("Auth failure", () => {
 
   test("ocr without token returns 401", async ({ request }) => {
     const res = await request.post("/api/v1/tools/ocr", {
+      multipart: {
+        file: { name: "test.png", mimeType: "image/png", buffer: TINY_PNG },
+        settings: JSON.stringify({}),
+      },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test("transparency-fixer without token returns 401", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/transparency-fixer", {
+      multipart: {
+        file: { name: "test.png", mimeType: "image/png", buffer: TINY_PNG },
+        settings: JSON.stringify({}),
+      },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test("blur-faces without token returns 401", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/blur-faces", {
+      multipart: {
+        file: { name: "test.png", mimeType: "image/png", buffer: TINY_PNG },
+        settings: JSON.stringify({ blurRadius: 30 }),
+      },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test("colorize without token returns 401", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/colorize", {
       multipart: {
         file: { name: "test.png", mimeType: "image/png", buffer: TINY_PNG },
         settings: JSON.stringify({}),

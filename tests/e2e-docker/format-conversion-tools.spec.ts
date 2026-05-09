@@ -718,6 +718,126 @@ test.describe("PDF to Image — additional formats", () => {
   });
 });
 
+// ─── SVG to Raster — Output Verification ────────────────────────
+
+test.describe("SVG to Raster — output verification", () => {
+  test("SVG-to-raster output can be downloaded", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/svg-to-raster", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "test.svg", mimeType: "image/svg+xml", buffer: SVG_100x100 },
+        settings: JSON.stringify({ format: "png", width: 256 }),
+      },
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.downloadUrl).toBeTruthy();
+
+    // Download and verify the rasterized image
+    const dlRes = await request.get(body.downloadUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(dlRes.ok()).toBe(true);
+    const buffer = Buffer.from(await dlRes.body());
+    expect(buffer.length).toBeGreaterThan(0);
+  });
+});
+
+// ─── GIF Tools — Output Verification ────────────────────────────
+
+test.describe("GIF Tools — output verification", () => {
+  test("GIF tool with optimize action", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/gif-tools", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "animated.gif", mimeType: "image/gif", buffer: ANIMATED_GIF },
+        settings: JSON.stringify({ action: "optimize" }),
+      },
+    });
+    if (res.ok()) {
+      const body = await res.json();
+      expect(body.downloadUrl || body.frames).toBeTruthy();
+    } else {
+      const body = await res.json();
+      expect(body.error).toBeDefined();
+    }
+  });
+
+  test("GIF tool with crop action", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/gif-tools", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "animated.gif", mimeType: "image/gif", buffer: ANIMATED_GIF },
+        settings: JSON.stringify({
+          action: "crop",
+          left: 0,
+          top: 0,
+          width: 50,
+          height: 50,
+        }),
+      },
+    });
+    if (res.ok()) {
+      const body = await res.json();
+      expect(body.downloadUrl || body.frames).toBeTruthy();
+    } else {
+      const body = await res.json();
+      expect(body.error).toBeDefined();
+    }
+  });
+});
+
+// ─── Vectorize — Output Verification ────────────────────────────
+
+test.describe("Vectorize — output verification", () => {
+  test("vectorized SVG output can be downloaded", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/vectorize", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "test.png", mimeType: "image/png", buffer: PNG_200x150 },
+        settings: JSON.stringify({}),
+      },
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.downloadUrl).toContain(".svg");
+
+    // Download the SVG
+    const dlRes = await request.get(body.downloadUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(dlRes.ok()).toBe(true);
+    const svgContent = await dlRes.text();
+    // Verify it's actually SVG content
+    expect(svgContent).toContain("<svg");
+  });
+});
+
+// ─── PDF to Image — Output Verification ─────────────────────────
+
+test.describe("PDF to Image — output verification", () => {
+  test("PDF conversion output can be downloaded", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/pdf-to-image", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "test.pdf", mimeType: "application/pdf", buffer: PDF_3PAGE },
+        settings: JSON.stringify({ format: "png", dpi: 150, pages: "1" }),
+      },
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    const downloadUrl = body.downloadUrl || body.pages?.[0]?.downloadUrl;
+    if (downloadUrl) {
+      const dlRes = await request.get(downloadUrl, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      expect(dlRes.ok()).toBe(true);
+      const buffer = Buffer.from(await dlRes.body());
+      expect(buffer.length).toBeGreaterThan(0);
+    }
+  });
+});
+
 // ─── Auth Failure ──────────────────────────────────────────────────
 
 test.describe("Auth failure", () => {
@@ -746,6 +866,26 @@ test.describe("Auth failure", () => {
       multipart: {
         file: { name: "test.pdf", mimeType: "application/pdf", buffer: PDF_3PAGE },
         settings: JSON.stringify({ format: "png", dpi: 150, pages: "1" }),
+      },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test("gif-tools without token returns 401", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/gif-tools", {
+      multipart: {
+        file: { name: "animated.gif", mimeType: "image/gif", buffer: ANIMATED_GIF },
+        settings: JSON.stringify({}),
+      },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test("convert without token returns 401", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/convert", {
+      multipart: {
+        file: { name: "test.png", mimeType: "image/png", buffer: PNG_200x150 },
+        settings: JSON.stringify({ format: "jpg" }),
       },
     });
     expect(res.status()).toBe(401);

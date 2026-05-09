@@ -339,7 +339,7 @@ describe("writeMetadata", () => {
     const written = await writeMetadata(buf, "test-with-exif.jpg", ["-Artist=TestArtist"]);
     const result = await inspectMetadata(written, "test-with-exif.jpg");
     expect(result.exif).not.toBeNull();
-    expect(result.exif!.Artist).toBe("TestArtist");
+    expect(result.exif?.Artist).toBe("TestArtist");
   });
 
   it("writing multiple tags works", async () => {
@@ -349,8 +349,8 @@ describe("writeMetadata", () => {
       "-Copyright=2024 Test Corp",
     ]);
     const result = await inspectMetadata(written, "test-with-exif.jpg");
-    expect(result.exif!.Artist).toBe("MultiTest");
-    expect(result.exif!.Copyright).toBe("2024 Test Corp");
+    expect(result.exif?.Artist).toBe("MultiTest");
+    expect(result.exif?.Copyright).toBe("2024 Test Corp");
   });
 
   it("returns a valid image buffer that Sharp can read", async () => {

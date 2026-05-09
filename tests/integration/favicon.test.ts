@@ -78,7 +78,7 @@ describe("favicon", () => {
     const zip = new AdmZip(Buffer.from(res.rawPayload));
     const manifestEntry = zip.getEntry("manifest.json");
     expect(manifestEntry).toBeDefined();
-    const manifest = JSON.parse(manifestEntry!.getData().toString("utf-8"));
+    const manifest = JSON.parse(manifestEntry?.getData().toString("utf-8"));
     expect(manifest.icons).toBeDefined();
     expect(manifest.icons.length).toBeGreaterThan(0);
   });
@@ -99,7 +99,7 @@ describe("favicon", () => {
     const zip = new AdmZip(Buffer.from(res.rawPayload));
     const snippetEntry = zip.getEntry("favicon-snippet.html");
     expect(snippetEntry).toBeDefined();
-    const html = snippetEntry!.getData().toString("utf-8");
+    const html = snippetEntry?.getData().toString("utf-8");
     expect(html).toContain('<link rel="icon"');
     expect(html).toContain('<link rel="apple-touch-icon"');
     expect(html).toContain('<link rel="manifest"');
@@ -122,7 +122,7 @@ describe("favicon", () => {
     for (const name of ["favicon-16x16.png", "favicon-32x32.png", "favicon.ico"]) {
       const entry = zip.getEntry(name);
       expect(entry).toBeDefined();
-      expect(entry!.header.size).toBeGreaterThan(0);
+      expect(entry?.header.size).toBeGreaterThan(0);
     }
   });
 
@@ -288,7 +288,7 @@ describe("favicon", () => {
     for (const [name, expectedSize] of Object.entries(expectedSizes)) {
       const entry = zip.getEntry(name);
       expect(entry).toBeDefined();
-      const meta = await sharp(entry!.getData()).metadata();
+      const meta = await sharp(entry?.getData()).metadata();
       expect(meta.width).toBe(expectedSize);
       expect(meta.height).toBe(expectedSize);
     }
@@ -309,7 +309,7 @@ describe("favicon", () => {
 
     expect(res.statusCode).toBe(200);
     const zip = new AdmZip(Buffer.from(res.rawPayload));
-    const manifest = JSON.parse(zip.getEntry("manifest.json")!.getData().toString("utf-8"));
+    const manifest = JSON.parse(zip.getEntry("manifest.json")?.getData().toString("utf-8"));
     expect(manifest.name).toBe("my-app-logo");
     expect(manifest.short_name).toBe("my-app-logo");
     expect(manifest.theme_color).toBe("#ffffff");
@@ -437,7 +437,7 @@ describe("favicon", () => {
     // Verify the 16x16 is actually 16x16 even from a 1x1 source
     const entry16 = zip.getEntry("favicon-16x16.png");
     expect(entry16).toBeDefined();
-    const meta = await sharp(entry16!.getData()).metadata();
+    const meta = await sharp(entry16?.getData()).metadata();
     expect(meta.width).toBe(16);
     expect(meta.height).toBe(16);
   });
@@ -491,7 +491,7 @@ describe("favicon", () => {
 
     // Square output even from portrait input (fit: cover)
     const entry32 = zip.getEntry("favicon-32x32.png");
-    const meta = await sharp(entry32!.getData()).metadata();
+    const meta = await sharp(entry32?.getData()).metadata();
     expect(meta.width).toBe(32);
     expect(meta.height).toBe(32);
   });
@@ -573,7 +573,7 @@ describe("favicon", () => {
     const zip = new AdmZip(Buffer.from(res.rawPayload));
     const icoEntry = zip.getEntry("favicon.ico");
     expect(icoEntry).toBeDefined();
-    const icoData = icoEntry!.getData();
+    const icoData = icoEntry?.getData();
     expect(icoData.length).toBeGreaterThan(0);
     // ICO is generated as PNG which starts with PNG magic bytes
     const meta = await sharp(icoData).metadata();
@@ -623,8 +623,100 @@ describe("favicon", () => {
 
     expect(res.statusCode).toBe(200);
     const zip = new AdmZip(Buffer.from(res.rawPayload));
-    const manifest = JSON.parse(zip.getEntry("manifest.json")!.getData().toString("utf-8"));
+    const manifest = JSON.parse(zip.getEntry("manifest.json")?.getData().toString("utf-8"));
     expect(manifest.name).toBe("my.app.logo");
+  });
+
+  // ── TIFF input format ─────────────────────────────────────────────
+
+  it("generates favicons from TIFF input", async () => {
+    const TIFF = readFileSync(join(FIXTURES, "formats", "sample.tiff"));
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "logo.tiff", contentType: "image/tiff", content: TIFF },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/favicon",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const zip = new AdmZip(Buffer.from(res.rawPayload));
+    const entries = zip.getEntries().map((e) => e.entryName);
+    expect(entries).toContain("favicon-16x16.png");
+    expect(entries).toContain("favicon-32x32.png");
+    expect(entries).toContain("favicon.ico");
+  });
+
+  // ── AVIF input format ───────────────────────────────────────────
+
+  it("generates favicons from AVIF input", async () => {
+    const AVIF = readFileSync(join(FIXTURES, "formats", "sample.avif"));
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "logo.avif", contentType: "image/avif", content: AVIF },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/favicon",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const zip = new AdmZip(Buffer.from(res.rawPayload));
+    const entries = zip.getEntries().map((e) => e.entryName);
+    expect(entries).toContain("favicon-32x32.png");
+    expect(entries).toContain("android-chrome-192x192.png");
+  });
+
+  // ── Verify ICO dimensions ───────────────────────────────────────
+
+  it("favicon.ico has correct 32x32 dimensions", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "logo.png", contentType: "image/png", content: PNG },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/favicon",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const zip = new AdmZip(Buffer.from(res.rawPayload));
+    const icoEntry = zip.getEntry("favicon.ico");
+    expect(icoEntry).toBeDefined();
+    const meta = await sharp(icoEntry?.getData()).metadata();
+    expect(meta.width).toBe(32);
+    expect(meta.height).toBe(32);
+    expect(meta.format).toBe("png");
+  });
+
+  // ── Apple touch icon is 180x180 ─────────────────────────────────
+
+  it("apple-touch-icon.png has correct 180x180 dimensions", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "logo.png", contentType: "image/png", content: PNG },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/favicon",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const zip = new AdmZip(Buffer.from(res.rawPayload));
+    const entry = zip.getEntry("apple-touch-icon.png");
+    expect(entry).toBeDefined();
+    const meta = await sharp(entry?.getData()).metadata();
+    expect(meta.width).toBe(180);
+    expect(meta.height).toBe(180);
   });
 
   // ── Animated GIF input ────────────────────────────────────────────

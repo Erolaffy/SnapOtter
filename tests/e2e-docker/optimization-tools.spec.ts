@@ -735,6 +735,114 @@ test.describe("Content-Aware Resize — extended", () => {
   });
 });
 
+// ─── Content-Aware Resize — HEIC & Edge Cases ───────────────────
+
+test.describe("Content-Aware Resize — HEIC & edge cases", () => {
+  test("content-aware resize HEIC image", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/content-aware-resize", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "test.heic", mimeType: "image/heic", buffer: HEIC_200x150 },
+        settings: JSON.stringify({ width: 150, height: 120 }),
+      },
+    });
+    if (res.status() === 501) {
+      const body = await res.json();
+      expect(body.code).toBe("FEATURE_NOT_INSTALLED");
+    } else {
+      expect(res.ok()).toBe(true);
+      const body = await res.json();
+      expect(body.downloadUrl).toBeTruthy();
+    }
+  });
+
+  test("content-aware resize WebP image", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/content-aware-resize", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "test.webp", mimeType: "image/webp", buffer: WEBP_50x50 },
+        settings: JSON.stringify({ width: 40, height: 40 }),
+      },
+    });
+    if (res.status() === 501) {
+      const body = await res.json();
+      expect(body.code).toBe("FEATURE_NOT_INSTALLED");
+    } else {
+      expect(res.ok()).toBe(true);
+      const body = await res.json();
+      expect(body.downloadUrl).toBeTruthy();
+    }
+  });
+});
+
+// ─── Optimize for Web — Output Verification ─────────────────────
+
+test.describe("Optimize for Web — output verification", () => {
+  test("optimized file can be downloaded and is valid", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/optimize-for-web", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "sample.jpg", mimeType: "image/jpeg", buffer: JPG_SAMPLE },
+        settings: JSON.stringify({ maxWidth: 400, quality: 60 }),
+      },
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.downloadUrl).toBeTruthy();
+
+    // Download and verify the optimized file is valid
+    const dlRes = await request.get(body.downloadUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(dlRes.ok()).toBe(true);
+    const buffer = Buffer.from(await dlRes.body());
+    expect(buffer.length).toBeGreaterThan(0);
+    expect(buffer.length).toBeLessThan(JPG_SAMPLE.length);
+  });
+});
+
+// ─── Favicon — Output Verification ──────────────────────────────
+
+test.describe("Favicon — output verification", () => {
+  test("favicon output can be downloaded", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/favicon", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "test.png", mimeType: "image/png", buffer: PNG_200x150 },
+        settings: JSON.stringify({}),
+      },
+    });
+    expect(res.ok()).toBe(true);
+    const ct = res.headers()["content-type"] ?? "";
+    if (ct.includes("application/json")) {
+      const body = await res.json();
+      expect(body.downloadUrl).toBeTruthy();
+
+      const dlRes = await request.get(body.downloadUrl, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      expect(dlRes.ok()).toBe(true);
+      const buffer = Buffer.from(await dlRes.body());
+      expect(buffer.length).toBeGreaterThan(0);
+    } else {
+      const buffer = Buffer.from(await res.body());
+      expect(buffer.length).toBeGreaterThan(0);
+    }
+  });
+
+  test("favicon from TIFF format", async ({ request }) => {
+    const tiff = formatFixture("sample.tiff");
+    const res = await request.post("/api/v1/tools/favicon", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "sample.tiff", mimeType: "image/tiff", buffer: tiff },
+        settings: JSON.stringify({}),
+      },
+    });
+    expect(res.ok()).toBe(true);
+  });
+});
+
 // ─── Auth Failure ──────────────────────────────────────────────────
 
 test.describe("Auth failure", () => {
@@ -767,6 +875,28 @@ test.describe("Auth failure", () => {
           replacementColor: "#000000",
           tolerance: 30,
         }),
+      },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test("image-to-pdf without token returns 401", async ({ request }) => {
+    const { body: reqBody, contentType } = buildMultipart(
+      [{ name: "file", filename: "test.jpg", contentType: "image/jpeg", buffer: JPG_100x100 }],
+      [{ name: "settings", value: JSON.stringify({ pageSize: "A4" }) }],
+    );
+    const res = await request.post("/api/v1/tools/image-to-pdf", {
+      headers: { "Content-Type": contentType },
+      data: reqBody,
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test("content-aware-resize without token returns 401", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/content-aware-resize", {
+      multipart: {
+        file: { name: "test.png", mimeType: "image/png", buffer: PNG_200x150 },
+        settings: JSON.stringify({ width: 100, height: 100 }),
       },
     });
     expect(res.status()).toBe(401);

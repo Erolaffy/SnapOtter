@@ -202,4 +202,87 @@ test.describe("GUI Settings - API Keys Tab", () => {
     await page.locator("button[title='Delete key']").first().click();
     await page.waitForTimeout(500);
   });
+
+  test("generated key starts with si_ prefix", async ({ loggedInPage: page }) => {
+    await openSettings(page);
+    await page.getByRole("button", { name: /api keys/i }).click();
+
+    const keyName = `prefixTest-${Date.now()}`;
+    await page.getByPlaceholder("Key name (optional)").fill(keyName);
+    await page.getByRole("button", { name: /generate api key/i }).click();
+
+    // The key should appear in a code element
+    const keyDisplay = page.locator("code.font-mono");
+    await expect(keyDisplay).toBeVisible({ timeout: 5_000 });
+
+    // Verify the key text starts with "si_"
+    const keyText = await keyDisplay.textContent();
+    expect(keyText).toMatch(/^si_/);
+
+    // Clean up
+    page.on("dialog", (d) => d.accept());
+    await page.locator("button[title='Delete key']").first().click();
+    await page.waitForTimeout(500);
+  });
+
+  test("existing keys show prefix and creation date", async ({ loggedInPage: page }) => {
+    await openSettings(page);
+    await page.getByRole("button", { name: /api keys/i }).click();
+
+    const keyName = `metaTest-${Date.now()}`;
+    await page.getByPlaceholder("Key name (optional)").fill(keyName);
+    await page.getByRole("button", { name: /generate api key/i }).click();
+    await expect(page.locator("code.font-mono")).toBeVisible({ timeout: 5_000 });
+
+    // In the Existing Keys list, the key entry should show the prefix (si_...)
+    await expect(page.getByText("Existing Keys")).toBeVisible();
+    await expect(page.getByText(/si_/).first()).toBeVisible();
+
+    // Clean up
+    page.on("dialog", (d) => d.accept());
+    await page.locator("button[title='Delete key']").first().click();
+    await page.waitForTimeout(500);
+  });
+
+  test("generating a key without a name still works", async ({ loggedInPage: page }) => {
+    await openSettings(page);
+    await page.getByRole("button", { name: /api keys/i }).click();
+
+    // Leave the name field empty and generate
+    await page.getByPlaceholder("Key name (optional)").fill("");
+    await page.getByRole("button", { name: /generate api key/i }).click();
+
+    // The key should still appear
+    const keyDisplay = page.locator("code.font-mono");
+    await expect(keyDisplay).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText("Store this key securely")).toBeVisible();
+
+    // Clean up
+    page.on("dialog", (d) => d.accept());
+    await page.locator("button[title='Delete key']").first().click();
+    await page.waitForTimeout(500);
+  });
+
+  test("cancel on delete confirmation keeps the key", async ({ loggedInPage: page }) => {
+    await openSettings(page);
+    await page.getByRole("button", { name: /api keys/i }).click();
+
+    const keyName = `cancelDelete-${Date.now()}`;
+    await page.getByPlaceholder("Key name (optional)").fill(keyName);
+    await page.getByRole("button", { name: /generate api key/i }).click();
+    await expect(page.locator("code.font-mono")).toBeVisible({ timeout: 5_000 });
+
+    // Dismiss the confirm dialog to cancel deletion
+    page.on("dialog", (d) => d.dismiss());
+    await page.locator("button[title='Delete key']").first().click();
+
+    // Key should still be present
+    await expect(page.getByText(keyName)).toBeVisible();
+
+    // Now actually delete for cleanup
+    page.removeAllListeners("dialog");
+    page.on("dialog", (d) => d.accept());
+    await page.locator("button[title='Delete key']").first().click();
+    await page.waitForTimeout(500);
+  });
 });

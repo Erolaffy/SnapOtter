@@ -1677,4 +1677,156 @@ describe("Stitch", () => {
     expect(result.downloadUrl).toBeDefined();
     expect(result.processedSize).toBeGreaterThan(0);
   });
+
+  // ── JXL output format ─────────────────────────────────────────────
+
+  it("accepts jxl output format (succeeds if Sharp supports JXL)", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "f1", filename: "a.png", contentType: "image/png", content: PNG },
+      { name: "f2", filename: "b.jpg", contentType: "image/jpeg", content: JPG },
+      {
+        name: "settings",
+        content: JSON.stringify({
+          direction: "horizontal",
+          format: "jxl",
+          quality: 80,
+        }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/stitch",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    // JXL support depends on the Sharp build
+    expect([200, 422]).toContain(res.statusCode);
+    if (res.statusCode === 200) {
+      const result = JSON.parse(res.body);
+      expect(result.downloadUrl).toContain("stitch.jxl");
+      expect(result.processedSize).toBeGreaterThan(0);
+    }
+  });
+
+  // ── Corner radius with JXL output ─────────────────────────────────
+
+  it("applies corner radius with jxl output format (if supported)", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "f1", filename: "a.png", contentType: "image/png", content: PNG },
+      { name: "f2", filename: "b.png", contentType: "image/png", content: PNG },
+      {
+        name: "settings",
+        content: JSON.stringify({
+          direction: "horizontal",
+          cornerRadius: 20,
+          format: "jxl",
+          quality: 75,
+        }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/stitch",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    // JXL support depends on the Sharp build
+    expect([200, 422]).toContain(res.statusCode);
+    if (res.statusCode === 200) {
+      const result = JSON.parse(res.body);
+      expect(result.processedSize).toBeGreaterThan(0);
+    }
+  });
+
+  // ── Grid with gridColumns greater than image count ────────────────
+
+  it("stitches grid with more columns than images (single row)", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "f1", filename: "a.jpg", contentType: "image/jpeg", content: JPG },
+      { name: "f2", filename: "b.jpg", contentType: "image/jpeg", content: JPG },
+      {
+        name: "settings",
+        content: JSON.stringify({
+          direction: "grid",
+          gridColumns: 10,
+          resizeMode: "stretch",
+        }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/stitch",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    const dlRes = await app.inject({
+      method: "GET",
+      url: result.downloadUrl,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const meta = await sharp(dlRes.rawPayload).metadata();
+    // cols is clamped to prepared.length (2), so 2 cols x 1 row
+    expect(meta.width).toBe(200);
+    expect(meta.height).toBe(100);
+  });
+
+  // ── Combined gap + border + corner radius ─────────────────────────
+
+  it("combines gap, border, and corner radius in horizontal mode", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "f1", filename: "a.jpg", contentType: "image/jpeg", content: JPG },
+      { name: "f2", filename: "b.jpg", contentType: "image/jpeg", content: JPG },
+      {
+        name: "settings",
+        content: JSON.stringify({
+          direction: "horizontal",
+          resizeMode: "original",
+          gap: 10,
+          border: 5,
+          cornerRadius: 15,
+          format: "png",
+        }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/stitch",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    const dlRes = await app.inject({
+      method: "GET",
+      url: result.downloadUrl,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const meta = await sharp(dlRes.rawPayload).metadata();
+    // 2*100 + 10 gap + 2*5 border = 220
+    expect(meta.width).toBe(220);
+    expect(meta.height).toBe(110); // 100 + 2*5
+    expect(meta.channels).toBe(4); // corner radius adds alpha
+  });
 });

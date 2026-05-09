@@ -15,7 +15,7 @@ async function uploadFile(page: import("@playwright/test").Page, filePath: strin
 }
 
 async function enableContentAware(page: import("@playwright/test").Page) {
-  const toggle = page
+  const _toggle = page
     .getByRole("switch", { name: "Content-aware" })
     .or(
       page

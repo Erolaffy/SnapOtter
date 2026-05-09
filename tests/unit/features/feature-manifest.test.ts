@@ -44,7 +44,7 @@ describe("Feature manifest structure", () => {
     expect(bundles["object-eraser-colorize"]).toBeDefined();
     expect(bundles["upscale-enhance"]).toBeDefined();
     expect(bundles["photo-restoration"]).toBeDefined();
-    expect(bundles["ocr"]).toBeDefined();
+    expect(bundles.ocr).toBeDefined();
   });
 
   it("every bundle has required fields", () => {

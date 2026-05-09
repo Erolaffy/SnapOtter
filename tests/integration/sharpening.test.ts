@@ -500,3 +500,156 @@ describe("SVG input", () => {
     expect(result.downloadUrl).toBeDefined();
   });
 });
+
+// ── TIFF input ─────────────────────────────────────────────────
+describe("TIFF input", () => {
+  it("processes TIFF image with unsharp-mask", async () => {
+    const TIFF = readFileSync(join(FIXTURES, "formats", "sample.tiff"));
+    const res = await postTool(
+      { method: "unsharp-mask", amount: 150 },
+      TIFF,
+      "test.tiff",
+      "image/tiff",
+    );
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+  });
+});
+
+// ── BMP input ──────────────────────────────────────────────────
+describe("BMP input", () => {
+  it("processes BMP image with adaptive sharpening", async () => {
+    const BMP = readFileSync(join(FIXTURES, "formats", "sample.bmp"));
+    const res = await postTool({ method: "adaptive", sigma: 2.0 }, BMP, "test.bmp", "image/bmp");
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+  });
+});
+
+// ── Negative strength rejected ─────────────────────────────────
+describe("Negative strength rejected", () => {
+  it("rejects negative strength value", async () => {
+    const res = await postTool({ method: "high-pass", strength: -1 });
+    expect(res.statusCode).toBe(400);
+  });
+});
+
+// ── Radius out of range ────────────────────────────────────────
+describe("Radius out of range", () => {
+  it("rejects radius below minimum (<0.1)", async () => {
+    const res = await postTool({ method: "unsharp-mask", radius: 0.05 });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("rejects radius above maximum (>5)", async () => {
+    const res = await postTool({ method: "unsharp-mask", radius: 5.1 });
+    expect(res.statusCode).toBe(400);
+  });
+});
+
+// ── Threshold boundary 0 ───────────────────────────────────────
+describe("Threshold boundary", () => {
+  it("accepts minimum threshold (0)", async () => {
+    const res = await postTool({
+      method: "unsharp-mask",
+      amount: 100,
+      radius: 1.0,
+      threshold: 0,
+    });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it("rejects threshold above maximum (>255)", async () => {
+    const res = await postTool({ method: "unsharp-mask", threshold: 256 });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("rejects negative threshold", async () => {
+    const res = await postTool({ method: "unsharp-mask", threshold: -1 });
+    expect(res.statusCode).toBe(400);
+  });
+});
+
+// ── Amount boundary ────────────────────────────────────────────
+describe("Amount boundary", () => {
+  it("accepts minimum amount (0)", async () => {
+    const res = await postTool({ method: "unsharp-mask", amount: 0 });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it("rejects negative amount", async () => {
+    const res = await postTool({ method: "unsharp-mask", amount: -1 });
+    expect(res.statusCode).toBe(400);
+  });
+});
+
+// ── All three methods with denoise ─────────────────────────────
+describe("All methods with denoise", () => {
+  it("applies adaptive with strong denoise", async () => {
+    const res = await postTool({
+      method: "adaptive",
+      sigma: 2.0,
+      denoise: "strong",
+    });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it("applies unsharp-mask with light denoise", async () => {
+    const res = await postTool({
+      method: "unsharp-mask",
+      amount: 100,
+      denoise: "light",
+    });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it("applies high-pass with medium denoise", async () => {
+    const res = await postTool({
+      method: "high-pass",
+      strength: 50,
+      kernelSize: 3,
+      denoise: "medium",
+    });
+    expect(res.statusCode).toBe(200);
+  });
+});
+
+// ── Output format preservation ─────────────────────────────────
+describe("Output format preservation", () => {
+  it("preserves JPEG format after sharpening", async () => {
+    const res = await postTool(
+      { method: "unsharp-mask", amount: 200 },
+      JPG,
+      "test.jpg",
+      "image/jpeg",
+    );
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    const dlRes = await app.inject({
+      method: "GET",
+      url: result.downloadUrl,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const meta = await sharp(dlRes.rawPayload).metadata();
+    expect(meta.format).toBe("jpeg");
+    expect(meta.width).toBe(100);
+    expect(meta.height).toBe(100);
+  });
+
+  it("preserves WebP format after sharpening", async () => {
+    const res = await postTool({ method: "adaptive", sigma: 1.5 }, WEBP, "test.webp", "image/webp");
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    const dlRes = await app.inject({
+      method: "GET",
+      url: result.downloadUrl,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const meta = await sharp(dlRes.rawPayload).metadata();
+    expect(meta.format).toBe("webp");
+    expect(meta.width).toBe(50);
+    expect(meta.height).toBe(50);
+  });
+});

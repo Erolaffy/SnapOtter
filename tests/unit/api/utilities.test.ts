@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, readdir, readFile, rm } from "node:fs/promises";
+import { mkdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -694,7 +694,7 @@ describe("workspace", () => {
   it("cleanupWorkspace on a non-existent directory does not throw", async () => {
     const { cleanupWorkspace } = await import("../../../apps/api/src/lib/workspace.js");
     // This job was never created
-    await expect(cleanupWorkspace("does-not-exist-" + randomUUID())).resolves.toBeUndefined();
+    await expect(cleanupWorkspace(`does-not-exist-${randomUUID()}`)).resolves.toBeUndefined();
   });
 
   it("createWorkspace is idempotent (calling twice does not throw)", async () => {
@@ -1269,14 +1269,14 @@ describe("sanitizeFilename", () => {
   });
 
   it("handles very long filenames by truncating to filesystem-safe length", () => {
-    const longName = "a".repeat(500) + ".png";
+    const longName = `${"a".repeat(500)}.png`;
     const result = sanitizeFilename(longName);
     expect(new TextEncoder().encode(result).length).toBeLessThanOrEqual(200);
     expect(result).toMatch(/\.png$/);
   });
 
   it("truncates very long filenames to filesystem-safe length", () => {
-    const longName = "a".repeat(300) + ".jpg";
+    const longName = `${"a".repeat(300)}.jpg`;
     const result = sanitizeFilename(longName);
     expect(new TextEncoder().encode(result).length).toBeLessThanOrEqual(200);
     expect(result).toMatch(/\.jpg$/);

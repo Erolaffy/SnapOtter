@@ -62,6 +62,61 @@ test.describe("GUI Settings - Security Tab", () => {
     await expect(page.getByText(/at least 4 characters/i)).toBeVisible({ timeout: 5_000 });
   });
 
+  test("wrong current password shows error message", async ({ loggedInPage: page }) => {
+    await openSettings(page);
+    await page.getByRole("button", { name: /security/i }).click();
+
+    await page.getByPlaceholder("Current Password").fill("wrongpassword");
+    await page.getByPlaceholder("New Password").first().fill("NewPass123");
+    await page.getByPlaceholder("Confirm New Password").fill("NewPass123");
+
+    await page.getByRole("button", { name: /change password/i }).click();
+
+    // The API returns 401 which maps to "Current password is incorrect"
+    await expect(page.getByText("Current password is incorrect")).toBeVisible({ timeout: 5_000 });
+  });
+
+  test("successful password change shows success message", async ({ loggedInPage: page }) => {
+    await openSettings(page);
+    await page.getByRole("button", { name: /security/i }).click();
+
+    // Change password from admin -> admin (same value, to avoid breaking other tests)
+    await page.getByPlaceholder("Current Password").fill("admin");
+    await page.getByPlaceholder("New Password").first().fill("admin");
+    await page.getByPlaceholder("Confirm New Password").fill("admin");
+
+    await page.getByRole("button", { name: /change password/i }).click();
+
+    await expect(page.getByText("Password changed successfully")).toBeVisible({ timeout: 5_000 });
+  });
+
+  test("form fields are cleared after successful password change", async ({
+    loggedInPage: page,
+  }) => {
+    await openSettings(page);
+    await page.getByRole("button", { name: /security/i }).click();
+
+    await page.getByPlaceholder("Current Password").fill("admin");
+    await page.getByPlaceholder("New Password").first().fill("admin");
+    await page.getByPlaceholder("Confirm New Password").fill("admin");
+
+    await page.getByRole("button", { name: /change password/i }).click();
+    await expect(page.getByText("Password changed successfully")).toBeVisible({ timeout: 5_000 });
+
+    // All fields should be cleared after success
+    await expect(page.getByPlaceholder("Current Password")).toHaveValue("");
+    await expect(page.getByPlaceholder("New Password").first()).toHaveValue("");
+    await expect(page.getByPlaceholder("Confirm New Password")).toHaveValue("");
+  });
+
+  test("section heading and description are displayed", async ({ loggedInPage: page }) => {
+    await openSettings(page);
+    await page.getByRole("button", { name: /security/i }).click();
+
+    await expect(page.locator("h3").filter({ hasText: "Security" })).toBeVisible();
+    await expect(page.getByText("Password and authentication settings.")).toBeVisible();
+  });
+
   test("security section shows login attempt limit reference", async ({ loggedInPage: page }) => {
     await openSettings(page);
     await page.getByRole("button", { name: /security/i }).click();

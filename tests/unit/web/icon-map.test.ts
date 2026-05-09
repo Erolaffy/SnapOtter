@@ -8,7 +8,7 @@ describe("ICON_MAP", () => {
   });
 
   it("every value is a valid React component", () => {
-    for (const [key, value] of Object.entries(ICON_MAP)) {
+    for (const [_key, value] of Object.entries(ICON_MAP)) {
       const isComponent =
         typeof value === "function" ||
         (typeof value === "object" && value !== null && "$$typeof" in value);
@@ -78,7 +78,7 @@ describe("ICON_MAP", () => {
   });
 
   it("does not contain undefined or null values", () => {
-    for (const [key, value] of Object.entries(ICON_MAP)) {
+    for (const [_key, value] of Object.entries(ICON_MAP)) {
       expect(value).not.toBeNull();
       expect(value).not.toBeUndefined();
     }

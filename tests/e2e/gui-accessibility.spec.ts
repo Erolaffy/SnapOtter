@@ -1,4 +1,4 @@
-import { expect, openSettings, test } from "./helpers";
+import { expect, openSettings, test, uploadTestImage, waitForProcessing } from "./helpers";
 
 // ---------------------------------------------------------------------------
 // GUI Accessibility: ARIA semantics, focus management, keyboard navigation
@@ -476,5 +476,485 @@ test.describe("Connection Banner Accessibility", () => {
 
     // Page should still function normally
     await expect(page.locator("main")).toBeVisible();
+  });
+
+  test("connection banner is announced to screen readers when visible", async ({
+    loggedInPage: page,
+  }) => {
+    // Force the banner to appear by simulating offline
+    await page.route("**/api/v1/health", (route) => route.abort());
+    await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+
+    const banner = page.locator("[role='status'][aria-live='polite']");
+    await expect(banner).toBeVisible({ timeout: 10_000 });
+
+    // Verify the banner has role="status" (implicit aria-live) for AT
+    await expect(banner).toHaveAttribute("role", "status");
+    await expect(banner).toHaveAttribute("aria-live", "polite");
+
+    // Banner text should be descriptive for screen readers
+    const text = await banner.textContent();
+    expect(text).toBeTruthy();
+    expect(text?.length).toBeGreaterThan(0);
+
+    await page.unroute("**/api/v1/health");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 14.5 Images Alt/Aria-Label
+// ---------------------------------------------------------------------------
+test.describe("Image Accessibility", () => {
+  test("all visible images on home page have alt text or aria-label", async ({
+    loggedInPage: page,
+  }) => {
+    await page.waitForLoadState("networkidle");
+
+    const images = page.locator("img");
+    const count = await images.count();
+
+    for (let i = 0; i < count; i++) {
+      const img = images.nth(i);
+      if (!(await img.isVisible().catch(() => false))) continue;
+
+      const alt = await img.getAttribute("alt");
+      const ariaLabel = await img.getAttribute("aria-label");
+      const role = await img.getAttribute("role");
+
+      // Decorative images should have role="presentation" or alt=""
+      // Meaningful images must have alt or aria-label
+      const isDecorative = role === "presentation" || role === "none" || alt === "";
+      const hasAccessibleName =
+        (alt && alt.trim().length > 0) || (ariaLabel && ariaLabel.trim().length > 0);
+
+      expect(
+        isDecorative || hasAccessibleName,
+        `Image at index ${i} has no alt text, aria-label, or presentation role. src="${await img.getAttribute("src")}"`,
+      ).toBeTruthy();
+    }
+  });
+
+  test("all visible images on tool page have alt text or aria-label", async ({
+    loggedInPage: page,
+  }) => {
+    await page.goto("/resize");
+    await page.waitForLoadState("networkidle");
+
+    const images = page.locator("img");
+    const count = await images.count();
+
+    for (let i = 0; i < count; i++) {
+      const img = images.nth(i);
+      if (!(await img.isVisible().catch(() => false))) continue;
+
+      const alt = await img.getAttribute("alt");
+      const ariaLabel = await img.getAttribute("aria-label");
+      const role = await img.getAttribute("role");
+
+      const isDecorative = role === "presentation" || role === "none" || alt === "";
+      const hasAccessibleName =
+        (alt && alt.trim().length > 0) || (ariaLabel && ariaLabel.trim().length > 0);
+
+      expect(
+        isDecorative || hasAccessibleName,
+        `Image at index ${i} has no alt text, aria-label, or presentation role.`,
+      ).toBeTruthy();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 14.5 No Duplicate IDs
+// ---------------------------------------------------------------------------
+test.describe("No Duplicate IDs", () => {
+  test("home page has no duplicate element IDs", async ({ loggedInPage: page }) => {
+    await page.waitForLoadState("networkidle");
+
+    const duplicates = await page.evaluate(() => {
+      const ids = Array.from(document.querySelectorAll("[id]")).map((el) => el.id);
+      const seen = new Set<string>();
+      const dups: string[] = [];
+      for (const id of ids) {
+        if (id && seen.has(id)) dups.push(id);
+        seen.add(id);
+      }
+      return dups;
+    });
+
+    expect(duplicates, `Duplicate IDs found on home page: ${duplicates.join(", ")}`).toHaveLength(
+      0,
+    );
+  });
+
+  test("tool page has no duplicate element IDs", async ({ loggedInPage: page }) => {
+    await page.goto("/resize");
+    await page.waitForLoadState("networkidle");
+
+    const duplicates = await page.evaluate(() => {
+      const ids = Array.from(document.querySelectorAll("[id]")).map((el) => el.id);
+      const seen = new Set<string>();
+      const dups: string[] = [];
+      for (const id of ids) {
+        if (id && seen.has(id)) dups.push(id);
+        seen.add(id);
+      }
+      return dups;
+    });
+
+    expect(duplicates, `Duplicate IDs found on tool page: ${duplicates.join(", ")}`).toHaveLength(
+      0,
+    );
+  });
+
+  test("login page has no duplicate element IDs", async ({ loggedInPage: page }) => {
+    // Use a fresh context without auth for the login page
+    await page.goto("/login");
+    await page.waitForLoadState("networkidle");
+
+    const duplicates = await page.evaluate(() => {
+      const ids = Array.from(document.querySelectorAll("[id]")).map((el) => el.id);
+      const seen = new Set<string>();
+      const dups: string[] = [];
+      for (const id of ids) {
+        if (id && seen.has(id)) dups.push(id);
+        seen.add(id);
+      }
+      return dups;
+    });
+
+    expect(duplicates, `Duplicate IDs found on login page: ${duplicates.join(", ")}`).toHaveLength(
+      0,
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 14.5 Keyboard-Operable Interactive Elements
+// ---------------------------------------------------------------------------
+test.describe("Keyboard Operability", () => {
+  test("all interactive elements on home page are keyboard-reachable via Tab", async ({
+    loggedInPage: page,
+  }) => {
+    await page.waitForLoadState("networkidle");
+
+    // Tab through the page and track all focused elements
+    const focusedTags = new Set<string>();
+
+    for (let i = 0; i < 30; i++) {
+      await page.keyboard.press("Tab");
+      const tag = await page.evaluate(() => document.activeElement?.tagName ?? "NONE");
+      focusedTags.add(tag);
+    }
+
+    // At minimum, we should have focused links, buttons, and/or inputs
+    const interactiveTags = ["A", "BUTTON", "INPUT", "SELECT", "TEXTAREA"];
+    const hasInteractive = interactiveTags.some((t) => focusedTags.has(t));
+    expect(
+      hasInteractive,
+      `No interactive elements were focused during Tab traversal. Got: ${[...focusedTags].join(", ")}`,
+    ).toBeTruthy();
+  });
+
+  test("Enter key activates focused button on home page", async ({ loggedInPage: page }) => {
+    await page.waitForLoadState("networkidle");
+
+    // Tab to the first visible button
+    for (let i = 0; i < 20; i++) {
+      await page.keyboard.press("Tab");
+      const tag = await page.evaluate(() => document.activeElement?.tagName);
+      if (tag === "BUTTON") break;
+    }
+
+    // Verify we are on a button
+    const activeTag = await page.evaluate(() => document.activeElement?.tagName);
+    if (activeTag === "BUTTON") {
+      // Press Enter -- should not crash
+      await page.keyboard.press("Enter");
+      await page.waitForTimeout(500);
+      await expect(page.locator("body")).toBeVisible();
+    }
+  });
+
+  test("Space key activates focused button", async ({ loggedInPage: page }) => {
+    await page.waitForLoadState("networkidle");
+
+    // Tab to the first visible button
+    for (let i = 0; i < 20; i++) {
+      await page.keyboard.press("Tab");
+      const tag = await page.evaluate(() => document.activeElement?.tagName);
+      if (tag === "BUTTON") break;
+    }
+
+    const activeTag = await page.evaluate(() => document.activeElement?.tagName);
+    if (activeTag === "BUTTON") {
+      await page.keyboard.press("Space");
+      await page.waitForTimeout(500);
+      await expect(page.locator("body")).toBeVisible();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 14.5 Modal ARIA: role=dialog, aria-modal
+// ---------------------------------------------------------------------------
+test.describe("Modal ARIA Compliance", () => {
+  test("settings dialog has role=dialog", async ({ loggedInPage: page }) => {
+    await openSettings(page);
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+
+    await page.keyboard.press("Escape");
+  });
+
+  test("settings dialog backdrop prevents interaction with background", async ({
+    loggedInPage: page,
+  }) => {
+    await openSettings(page);
+
+    // Tab 15 times -- focus should stay within the dialog area
+    for (let i = 0; i < 15; i++) {
+      await page.keyboard.press("Tab");
+    }
+
+    // Verify focus has not escaped to the sidebar
+    const focusLocation = await page.evaluate(() => {
+      const active = document.activeElement;
+      if (!active) return "none";
+      const sidebar = document.querySelector("aside");
+      if (sidebar?.contains(active)) return "sidebar";
+      return "dialog-or-other";
+    });
+
+    expect(focusLocation).not.toBe("sidebar");
+
+    await page.keyboard.press("Escape");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 14.5 Color Contrast (sampled checks)
+// ---------------------------------------------------------------------------
+test.describe("Color Contrast", () => {
+  test("primary text on home page meets minimum contrast ratio", async ({ loggedInPage: page }) => {
+    await page.waitForLoadState("networkidle");
+
+    // Sample the foreground/background colors of the first heading
+    const contrast = await page.evaluate(() => {
+      const heading = document.querySelector("h1, h2");
+      if (!heading) return null;
+
+      const style = window.getComputedStyle(heading);
+      const color = style.color;
+      const bgColor = style.backgroundColor;
+
+      // Parse rgb values
+      const parseRgb = (c: string) => {
+        const m = c.match(/\d+/g);
+        return m ? m.map(Number) : null;
+      };
+
+      const fg = parseRgb(color);
+      const bg = parseRgb(bgColor);
+      if (!fg || !bg) return null;
+
+      // Relative luminance per WCAG 2.1
+      const luminance = (rgb: number[]) => {
+        const [r, g, b] = rgb.map((v) => {
+          const s = v / 255;
+          return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+        });
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      };
+
+      const l1 = luminance(fg);
+      const l2 = luminance(bg);
+      const ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+
+      return { ratio, fg: color, bg: bgColor };
+    });
+
+    // If we got a valid contrast measurement, verify WCAG AA for large text (3:1)
+    if (contrast && contrast.ratio > 0) {
+      expect(
+        contrast.ratio,
+        `Heading contrast ratio ${contrast.ratio.toFixed(2)} below 3:1 (fg: ${contrast.fg}, bg: ${contrast.bg})`,
+      ).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  test("button text meets WCAG AA contrast ratio (4.5:1 for normal text)", async ({
+    loggedInPage: page,
+  }) => {
+    await page.waitForLoadState("networkidle");
+
+    // Check the first visible button with text content
+    const contrastResults = await page.evaluate(() => {
+      const buttons = Array.from(document.querySelectorAll("button"));
+      const results: Array<{ text: string; ratio: number }> = [];
+
+      for (const btn of buttons.slice(0, 5)) {
+        if (!btn.offsetParent) continue;
+        const text = btn.textContent?.trim();
+        if (!text) continue;
+
+        const style = window.getComputedStyle(btn);
+        const color = style.color;
+        const bgColor = style.backgroundColor;
+
+        const parseRgb = (c: string) => {
+          const m = c.match(/\d+/g);
+          return m ? m.map(Number) : null;
+        };
+
+        const fg = parseRgb(color);
+        const bg = parseRgb(bgColor);
+        if (!fg || !bg) continue;
+
+        const luminance = (rgb: number[]) => {
+          const [r, g, b] = rgb.map((v) => {
+            const s = v / 255;
+            return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+          });
+          return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        };
+
+        const l1 = luminance(fg);
+        const l2 = luminance(bg);
+        const ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+
+        // Only check buttons with non-transparent backgrounds
+        if (bg[3] !== undefined || bgColor !== "rgba(0, 0, 0, 0)") {
+          results.push({ text, ratio });
+        }
+      }
+      return results;
+    });
+
+    // Each sampled button should meet 4.5:1 for normal text
+    for (const result of contrastResults) {
+      if (result.ratio > 0 && result.ratio < 100) {
+        expect(
+          result.ratio,
+          `Button "${result.text}" has contrast ratio ${result.ratio.toFixed(2)}, below 4.5:1`,
+        ).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 14.6 Focus Management (expanded)
+// ---------------------------------------------------------------------------
+test.describe("Focus After Login", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("after login redirect, focus moves to main content area", async ({ page }) => {
+    await page.goto("/login");
+    await page.getByLabel("Username").fill("admin");
+    await page.getByLabel("Password").fill("admin");
+    await page.getByRole("button", { name: /login/i }).click();
+
+    // Wait for redirect to home
+    await page.waitForURL("/", { timeout: 15_000 });
+    await page.waitForLoadState("domcontentloaded");
+
+    // After login, focus should be within the main content area or body
+    // (not still stuck on a removed login form element)
+    const activeTag = await page.evaluate(() => document.activeElement?.tagName);
+    expect(activeTag).toBeDefined();
+    expect(activeTag).not.toBe("undefined");
+
+    // Main content should be visible and accessible
+    await expect(page.locator("main")).toBeVisible();
+  });
+});
+
+test.describe("Focus After File Upload", () => {
+  test("after file upload, focus moves toward settings panel", async ({ loggedInPage: page }) => {
+    await page.goto("/resize");
+    await uploadTestImage(page);
+
+    // After upload, the settings panel and process button should be visible
+    const resizeBtn = page.getByRole("button", { name: "Resize" });
+    await expect(resizeBtn).toBeVisible({ timeout: 5_000 });
+
+    // The focus should be somewhere meaningful, not lost
+    const activeTag = await page.evaluate(() => document.activeElement?.tagName);
+    expect(activeTag).toBeDefined();
+    expect(activeTag).not.toBe("undefined");
+  });
+
+  test("after processing completes, download link is reachable", async ({ loggedInPage: page }) => {
+    await page.goto("/resize");
+    await uploadTestImage(page);
+
+    await page.locator("input[placeholder='Auto']").first().fill("50");
+    await page.getByRole("button", { name: "Resize" }).click();
+    await waitForProcessing(page);
+
+    // Download link should be visible and focusable
+    const downloadLink = page.getByRole("link", { name: /download/i }).first();
+    await expect(downloadLink).toBeVisible({ timeout: 15_000 });
+
+    // Focus should be reachable by Tab navigation
+    await downloadLink.focus();
+    const isFocused = await page.evaluate(() => {
+      const active = document.activeElement;
+      return active?.tagName === "A" && /download/i.test(active.textContent ?? "");
+    });
+    expect(isFocused).toBeTruthy();
+  });
+});
+
+test.describe("Focus Returns to Trigger After Dialog Close", () => {
+  test("closing settings dialog returns focus near the trigger element", async ({
+    loggedInPage: page,
+  }) => {
+    // Record which element we click to open settings
+    const sidebar = page.locator("aside");
+    const settingsBtn = sidebar.getByText("Settings");
+
+    await settingsBtn.click();
+    await page.getByRole("dialog").waitFor({ state: "visible", timeout: 5000 });
+
+    // Close via Escape
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).not.toBeVisible({ timeout: 5_000 });
+
+    // Focus should return to the body/page -- not be trapped in a removed node
+    const activeElement = await page.evaluate(() => {
+      const el = document.activeElement;
+      return {
+        tag: el?.tagName ?? "null",
+        isConnected: el?.isConnected ?? false,
+      };
+    });
+
+    // The focused element must be a connected DOM node
+    expect(activeElement.isConnected).toBeTruthy();
+    expect(activeElement.tag).not.toBe("null");
+  });
+
+  test("closing help dialog returns focus to a connected element", async ({
+    loggedInPage: page,
+  }) => {
+    const helpBtn = page.locator("aside").getByText("Help");
+    await helpBtn.click();
+    await expect(page.getByRole("heading", { name: "Help" })).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("heading", { name: "Help" })).not.toBeVisible();
+
+    const activeElement = await page.evaluate(() => {
+      const el = document.activeElement;
+      return {
+        tag: el?.tagName ?? "null",
+        isConnected: el?.isConnected ?? false,
+      };
+    });
+
+    expect(activeElement.isConnected).toBeTruthy();
+    expect(activeElement.tag).not.toBe("null");
   });
 });

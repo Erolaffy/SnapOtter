@@ -100,10 +100,10 @@ describe("seamCarve", () => {
     const calls = mockExecFileAsync.mock.calls;
     const caireCall = calls.find((c: unknown[]) => Array.isArray(c[1]) && c[1].includes("-width"));
     expect(caireCall).toBeDefined();
-    expect(caireCall![1]).toContain("-width");
-    expect(caireCall![1]).toContain("400");
-    expect(caireCall![1]).toContain("-height");
-    expect(caireCall![1]).toContain("300");
+    expect(caireCall?.[1]).toContain("-width");
+    expect(caireCall?.[1]).toContain("400");
+    expect(caireCall?.[1]).toContain("-height");
+    expect(caireCall?.[1]).toContain("300");
   });
 
   it("uses square mode with shortest side", async () => {
@@ -114,10 +114,10 @@ describe("seamCarve", () => {
     const caireCall = calls.find((c: unknown[]) => Array.isArray(c[1]) && c[1].includes("-square"));
     expect(caireCall).toBeDefined();
     // shortest side of 800x600 is 600
-    expect(caireCall![1]).toContain("-width");
-    expect(caireCall![1]).toContain("600");
-    expect(caireCall![1]).toContain("-height");
-    expect(caireCall![1]).toContain("600");
+    expect(caireCall?.[1]).toContain("-width");
+    expect(caireCall?.[1]).toContain("600");
+    expect(caireCall?.[1]).toContain("-height");
+    expect(caireCall?.[1]).toContain("600");
   });
 
   it("passes protectFaces option as -face flag", async () => {
@@ -136,10 +136,10 @@ describe("seamCarve", () => {
     const calls = mockExecFileAsync.mock.calls;
     const caireCall = calls.find((c: unknown[]) => Array.isArray(c[1]) && c[1].includes("-blur"));
     expect(caireCall).toBeDefined();
-    expect(caireCall![1]).toContain("-blur");
-    expect(caireCall![1]).toContain("5");
-    expect(caireCall![1]).toContain("-sobel");
-    expect(caireCall![1]).toContain("10");
+    expect(caireCall?.[1]).toContain("-blur");
+    expect(caireCall?.[1]).toContain("5");
+    expect(caireCall?.[1]).toContain("-sobel");
+    expect(caireCall?.[1]).toContain("10");
   });
 
   it("returns SeamCarveResult with output dimensions", async () => {
@@ -236,7 +236,7 @@ describe("seamCarve", () => {
       (c: unknown[]) => Array.isArray(c[1]) && c[1].includes("-preview=false"),
     );
     // timeout = max(120_000, 12 * 10 * 1000) = 120_000
-    expect(caireCall![2]).toEqual(expect.objectContaining({ timeout: expect.any(Number) }));
+    expect(caireCall?.[2]).toEqual(expect.objectContaining({ timeout: expect.any(Number) }));
   });
 
   it("does not pass width/height args when not specified", async () => {
@@ -247,8 +247,8 @@ describe("seamCarve", () => {
     const caireCall = calls.find(
       (c: unknown[]) => Array.isArray(c[1]) && c[1].includes("-preview=false"),
     );
-    expect(caireCall![1]).not.toContain("-width");
-    expect(caireCall![1]).not.toContain("-height");
+    expect(caireCall?.[1]).not.toContain("-width");
+    expect(caireCall?.[1]).not.toContain("-height");
   });
 
   it("handles zero dimensions from metadata gracefully", async () => {
@@ -331,9 +331,9 @@ describe("seamCarve", () => {
       (c: unknown[]) => Array.isArray(c[1]) && c[1].includes("-preview=false"),
     );
     expect(caireCall).toBeDefined();
-    expect(caireCall![1]).toContain("-width");
-    expect(caireCall![1]).toContain("600");
-    expect(caireCall![1]).not.toContain("-height");
+    expect(caireCall?.[1]).toContain("-width");
+    expect(caireCall?.[1]).toContain("600");
+    expect(caireCall?.[1]).not.toContain("-height");
   });
 
   it("passes only height when width is not specified", async () => {
@@ -345,9 +345,9 @@ describe("seamCarve", () => {
       (c: unknown[]) => Array.isArray(c[1]) && c[1].includes("-preview=false"),
     );
     expect(caireCall).toBeDefined();
-    expect(caireCall![1]).not.toContain("-width");
-    expect(caireCall![1]).toContain("-height");
-    expect(caireCall![1]).toContain("400");
+    expect(caireCall?.[1]).not.toContain("-width");
+    expect(caireCall?.[1]).toContain("-height");
+    expect(caireCall?.[1]).toContain("400");
   });
 
   it("does not pass -face when protectFaces is false or absent", async () => {
@@ -359,7 +359,7 @@ describe("seamCarve", () => {
       (c: unknown[]) => Array.isArray(c[1]) && c[1].includes("-preview=false"),
     );
     expect(caireCall).toBeDefined();
-    expect(caireCall![1]).not.toContain("-face");
+    expect(caireCall?.[1]).not.toContain("-face");
   });
 
   it("does not pass -blur and -sobel when not specified", async () => {
@@ -371,8 +371,8 @@ describe("seamCarve", () => {
       (c: unknown[]) => Array.isArray(c[1]) && c[1].includes("-preview=false"),
     );
     expect(caireCall).toBeDefined();
-    expect(caireCall![1]).not.toContain("-blur");
-    expect(caireCall![1]).not.toContain("-sobel");
+    expect(caireCall?.[1]).not.toContain("-blur");
+    expect(caireCall?.[1]).not.toContain("-sobel");
   });
 
   it("includes megapixels in the too-large error message", async () => {
@@ -451,6 +451,6 @@ describe("seamCarve", () => {
     const caireCall = calls.find((c: unknown[]) => Array.isArray(c[1]) && c[1].includes("-square"));
     expect(caireCall).toBeDefined();
     // shortest side is 400
-    expect(caireCall![1]).toContain("400");
+    expect(caireCall?.[1]).toContain("400");
   });
 });

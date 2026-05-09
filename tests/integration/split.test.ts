@@ -101,7 +101,7 @@ describe("Split", () => {
     // 150/3 = floor 50, last row: 150 - 2*50 = 50
     const bottomRight = entries.find((e) => e.entryName === "img_r3_c3.png");
     expect(bottomRight).toBeDefined();
-    const meta = await sharp(bottomRight!.getData()).metadata();
+    const meta = await sharp(bottomRight?.getData()).metadata();
     expect(meta.width).toBe(200 - 2 * 66); // 68
     expect(meta.height).toBe(150 - 2 * 50); // 50
   });
@@ -494,14 +494,14 @@ describe("Split", () => {
     // Last column tile should have remainder width
     const lastColTile = entries.find((e) => e.entryName.includes("_r1_c3"));
     expect(lastColTile).toBeDefined();
-    const lastColMeta = await sharp(lastColTile!.getData()).metadata();
+    const lastColMeta = await sharp(lastColTile?.getData()).metadata();
     expect(lastColMeta.width).toBe(200 - 2 * 80); // 40
     expect(lastColMeta.height).toBe(80);
 
     // Last row tile should have remainder height
     const lastRowTile = entries.find((e) => e.entryName.includes("_r2_c1"));
     expect(lastRowTile).toBeDefined();
-    const lastRowMeta = await sharp(lastRowTile!.getData()).metadata();
+    const lastRowMeta = await sharp(lastRowTile?.getData()).metadata();
     expect(lastRowMeta.width).toBe(80);
     expect(lastRowMeta.height).toBe(150 - 80); // 70
   });
@@ -1484,5 +1484,109 @@ describe("Split", () => {
       expect(meta.width).toBeGreaterThan(0);
       expect(meta.height).toBeGreaterThan(0);
     }
+  });
+
+  // ── JXL output format ─────────────────────────────────────────────
+
+  it("accepts jxl as a valid output format in settings schema", async () => {
+    // JXL support depends on the Sharp build. The split route uses reply.hijack()
+    // which means errors after headers are sent can hang the connection. Instead
+    // of testing actual JXL output, we verify the settings schema accepts "jxl"
+    // by confirming it doesn't get rejected with 400, using the batch endpoint
+    // which returns JSON rather than streaming.
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.png", contentType: "image/png", content: PNG },
+      {
+        name: "settings",
+        content: JSON.stringify({ columns: 2, rows: 1, outputFormat: "jxl", quality: 75 }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/split/batch",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    // Should not be 400 (invalid settings) -- jxl is a valid enum value
+    expect(res.statusCode).not.toBe(400);
+  });
+
+  // ── Corrupt image file ────────────────────────────────────────────
+
+  it("rejects a corrupt image file", async () => {
+    const corruptBuffer = Buffer.from("this is not an image file at all");
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "corrupt.png", contentType: "image/png", content: corruptBuffer },
+      {
+        name: "settings",
+        content: JSON.stringify({ columns: 2, rows: 2 }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/split",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    // Split hijacks the reply, so error may come as 422 or fail to stream
+    expect([400, 422]).toContain(res.statusCode);
+  });
+
+  // ── Quality at boundary values ────────────────────────────────────
+
+  it("rejects quality below minimum (1)", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.png", contentType: "image/png", content: PNG },
+      {
+        name: "settings",
+        content: JSON.stringify({ columns: 2, rows: 2, outputFormat: "jpg", quality: 0 }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/split",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  // ── tileWidth below minimum ───────────────────────────────────────
+
+  it("rejects tileWidth below minimum (10)", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.png", contentType: "image/png", content: PNG },
+      {
+        name: "settings",
+        content: JSON.stringify({ tileWidth: 5, tileHeight: 50 }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/split",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(400);
   });
 });

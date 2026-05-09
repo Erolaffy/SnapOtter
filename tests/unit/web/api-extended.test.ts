@@ -26,7 +26,6 @@ import {
   getFileDownloadUrl,
   getFileThumbnailUrl,
   parseApiError,
-  setToken,
 } from "@/lib/api";
 
 function okJson(data: unknown) {
@@ -38,7 +37,7 @@ function okJson(data: unknown) {
   } as unknown as Response);
 }
 
-function failJson(status: number, body: Record<string, unknown>) {
+function _failJson(status: number, body: Record<string, unknown>) {
   return Promise.resolve({
     ok: false,
     status,

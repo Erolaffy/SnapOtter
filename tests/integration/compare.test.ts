@@ -853,4 +853,112 @@ describe("Compare", () => {
     expect(result.similarity).toBeLessThanOrEqual(100);
     expect(result.downloadUrl).toBeDefined();
   });
+
+  // ── SVG vs SVG comparison ─────────────────────────────────────────
+
+  it("compares two identical SVG images (100% similarity)", async () => {
+    const SVG = readFileSync(join(FIXTURES, "test-100x100.svg"));
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "a.svg", contentType: "image/svg+xml", content: SVG },
+      { name: "file", filename: "b.svg", contentType: "image/svg+xml", content: SVG },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/compare",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.similarity).toBe(100);
+    expect(result.downloadUrl).toBeDefined();
+    expect(result.dimensions.width).toBeGreaterThan(0);
+    expect(result.dimensions.height).toBeGreaterThan(0);
+  });
+
+  // ── Two different SVGs ────────────────────────────────────────────
+
+  it("compares two different SVG images", async () => {
+    const SVG = readFileSync(join(FIXTURES, "test-100x100.svg"));
+    const LOGO_SVG = readFileSync(join(FIXTURES, "content", "svg-logo.svg"));
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "a.svg", contentType: "image/svg+xml", content: SVG },
+      { name: "file", filename: "b.svg", contentType: "image/svg+xml", content: LOGO_SVG },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/compare",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.similarity).toBeGreaterThanOrEqual(0);
+    expect(result.similarity).toBeLessThanOrEqual(100);
+  });
+
+  // ── Portrait vs portrait comparison ───────────────────────────────
+
+  it("compares two portrait images", async () => {
+    const PORTRAIT = readFileSync(join(FIXTURES, "test-portrait.jpg"));
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "a.jpg", contentType: "image/jpeg", content: PORTRAIT },
+      { name: "file", filename: "b.jpg", contentType: "image/jpeg", content: PORTRAIT },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/compare",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.similarity).toBe(100);
+  });
+
+  // ── Diff image dimensions verified via download ───────────────────
+
+  it("diff image matches the reported dimensions", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "a.png", contentType: "image/png", content: PNG },
+      { name: "file", filename: "b.png", contentType: "image/png", content: PNG },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/compare",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+
+    const dlRes = await app.inject({
+      method: "GET",
+      url: result.downloadUrl,
+    });
+    const meta = await sharp(dlRes.rawPayload).metadata();
+    expect(meta.width).toBe(result.dimensions.width);
+    expect(meta.height).toBe(result.dimensions.height);
+    expect(meta.format).toBe("png");
+  });
 });

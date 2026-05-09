@@ -53,11 +53,7 @@ function extractActorId(details: Record<string, unknown>): string | null {
 }
 
 function extractActorUsername(details: Record<string, unknown>): string {
-  return (
-    (details.username as string) ??
-    (details.newUsername as string) ??
-    "system"
-  );
+  return (details.username as string) ?? (details.newUsername as string) ?? "system";
 }
 
 // ---------------------------------------------------------------------------
@@ -115,9 +111,7 @@ describe("audit helpers", () => {
     });
 
     it("prefers userId over adminId when both are present", () => {
-      expect(extractActorId({ userId: "u-123", adminId: "a-456" })).toBe(
-        "u-123",
-      );
+      expect(extractActorId({ userId: "u-123", adminId: "a-456" })).toBe("u-123");
     });
 
     it("returns null when neither userId nor adminId is present", () => {
@@ -139,9 +133,7 @@ describe("audit helpers", () => {
     });
 
     it("prefers username over newUsername when both are present", () => {
-      expect(
-        extractActorUsername({ username: "alice", newUsername: "bob" }),
-      ).toBe("alice");
+      expect(extractActorUsername({ username: "alice", newUsername: "bob" })).toBe("alice");
     });
 
     it('returns "system" when neither username nor newUsername is present', () => {

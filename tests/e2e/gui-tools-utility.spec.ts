@@ -23,6 +23,24 @@ test.describe("GUI Utility Tools", () => {
       // Compare tool requires a second image
       await expect(page.getByText(/second|compare|upload/i).first()).toBeVisible();
     });
+
+    test("shows second image upload button with correct label", async ({ loggedInPage: page }) => {
+      await page.goto("/compare");
+
+      await expect(page.getByText("Second Image")).toBeVisible();
+      await expect(page.getByText("Choose second image")).toBeVisible();
+    });
+
+    test("submit disabled without both images", async ({ loggedInPage: page }) => {
+      await page.goto("/compare");
+
+      const submitBtn = page.getByTestId("compare-submit");
+      await expect(submitBtn).toBeDisabled();
+
+      await uploadTestImage(page);
+      // Still disabled -- no second image
+      await expect(submitBtn).toBeDisabled();
+    });
   });
 
   // ========================================================================
@@ -64,11 +82,43 @@ test.describe("GUI Utility Tools", () => {
       await expect(page.getByText(/output format|format/i).first()).toBeVisible();
     });
 
+    test("shows all output format buttons", async ({ loggedInPage: page }) => {
+      await page.goto("/image-to-base64");
+      await uploadTestImage(page);
+
+      await expect(page.getByRole("button", { name: "Keep Original" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "JPEG" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "PNG" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "WebP" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "AVIF" })).toBeVisible();
+    });
+
+    test("quality slider appears for lossy formats", async ({ loggedInPage: page }) => {
+      await page.goto("/image-to-base64");
+      await uploadTestImage(page);
+
+      // Keep Original is default -- no quality slider
+      await expect(page.locator("#b64-quality")).not.toBeVisible();
+
+      // Switch to JPEG -- quality slider should appear
+      await page.getByRole("button", { name: "JPEG" }).click();
+      await expect(page.locator("#b64-quality")).toBeVisible();
+    });
+
+    test("shows max width and max height inputs", async ({ loggedInPage: page }) => {
+      await page.goto("/image-to-base64");
+      await uploadTestImage(page);
+
+      await expect(page.locator("#b64-max-width")).toBeVisible();
+      await expect(page.locator("#b64-max-height")).toBeVisible();
+    });
+
     test("submit button uses data-testid", async ({ loggedInPage: page }) => {
       await page.goto("/image-to-base64");
       await uploadTestImage(page);
 
       await expect(page.getByTestId("base64-submit")).toBeVisible();
+      await expect(page.getByTestId("base64-submit")).toHaveText(/Convert to Base64/);
     });
   });
 
@@ -161,6 +211,30 @@ test.describe("GUI Utility Tools", () => {
       await expect(page.getByText("PNG").first()).toBeVisible();
       await expect(page.getByText("SVG").first()).toBeVisible();
     });
+
+    test("WiFi tab shows network inputs", async ({ loggedInPage: page }) => {
+      await page.goto("/qr-generate");
+
+      await page.getByText("WiFi").first().click();
+      // WiFi tab should show SSID and password inputs
+      await expect(page.getByText(/ssid|network/i).first()).toBeVisible();
+    });
+
+    test("vCard tab shows contact fields", async ({ loggedInPage: page }) => {
+      await page.goto("/qr-generate");
+
+      await page.getByText("vCard").first().click();
+      // vCard tab should show name input
+      await expect(page.getByText(/name/i).first()).toBeVisible();
+    });
+
+    test("Text tab shows text input", async ({ loggedInPage: page }) => {
+      await page.goto("/qr-generate");
+
+      await page.getByText("Text").first().click();
+      // Text tab should have a textarea or input
+      await expect(page.locator("textarea, input[type='text']").first()).toBeVisible();
+    });
   });
 
   // ========================================================================
@@ -173,19 +247,44 @@ test.describe("GUI Utility Tools", () => {
       await expect(page.getByText("Upload from computer")).toBeVisible();
     });
 
-    test("shows pattern input after upload", async ({ loggedInPage: page }) => {
+    test("shows pattern input with default value after upload", async ({ loggedInPage: page }) => {
       await page.goto("/bulk-rename");
       await uploadTestImage(page);
 
-      // Pattern input with default "image-{{index}}"
-      await expect(page.getByText("Settings").first()).toBeVisible();
+      await expect(page.locator("#bulk-rename-pattern")).toBeVisible();
+      await expect(page.locator("#bulk-rename-pattern")).toHaveValue("image-{{index}}");
     });
 
-    test("submit button uses data-testid", async ({ loggedInPage: page }) => {
+    test("shows pattern variables help text", async ({ loggedInPage: page }) => {
       await page.goto("/bulk-rename");
       await uploadTestImage(page);
 
-      await expect(page.getByTestId("bulk-rename-submit")).toBeVisible();
+      await expect(page.getByText("{{index}}")).toBeVisible();
+      await expect(page.getByText("{{padded}}")).toBeVisible();
+      await expect(page.getByText("{{original}}")).toBeVisible();
+    });
+
+    test("shows start index input", async ({ loggedInPage: page }) => {
+      await page.goto("/bulk-rename");
+      await uploadTestImage(page);
+
+      await expect(page.locator("#bulk-rename-start-index")).toBeVisible();
+    });
+
+    test("shows preview of renamed files after upload", async ({ loggedInPage: page }) => {
+      await page.goto("/bulk-rename");
+      await uploadTestImage(page);
+
+      await expect(page.getByText("Preview")).toBeVisible();
+    });
+
+    test("submit button uses data-testid and shows file count", async ({ loggedInPage: page }) => {
+      await page.goto("/bulk-rename");
+      await uploadTestImage(page);
+
+      const submitBtn = page.getByTestId("bulk-rename-submit");
+      await expect(submitBtn).toBeVisible();
+      await expect(submitBtn).toHaveText(/Rename.*Files/);
     });
   });
 });

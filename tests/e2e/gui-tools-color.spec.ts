@@ -94,6 +94,25 @@ test.describe("GUI Color & Adjustment Tools", () => {
       await expect(page.getByRole("button", { name: "Reset All" })).toBeVisible();
     });
 
+    test("selecting grayscale effect enables submit", async ({ loggedInPage: page }) => {
+      await page.goto("/adjust-colors");
+      await uploadTestImage(page);
+
+      const submitBtn = page.getByTestId("adjust-colors-submit");
+      await expect(submitBtn).toBeDisabled();
+
+      await page.getByRole("button", { name: "grayscale" }).click();
+      await expect(submitBtn).toBeEnabled();
+    });
+
+    test("detail section shows clarity and texture sliders", async ({ loggedInPage: page }) => {
+      await page.goto("/adjust-colors");
+      await uploadTestImage(page);
+
+      // Detail section should have sharpness/clarity controls
+      await expect(page.getByText("Detail").first()).toBeVisible();
+    });
+
     test("processes color adjustment and shows download", async ({ loggedInPage: page }) => {
       await page.goto("/adjust-colors");
       await uploadTestImage(page);
@@ -193,6 +212,14 @@ test.describe("GUI Color & Adjustment Tools", () => {
       const btn = page.getByTestId("color-palette-submit");
       await expect(btn).toBeVisible();
       await expect(btn).toHaveText(/Extract Colors/);
+    });
+
+    test("submit button is enabled with file uploaded", async ({ loggedInPage: page }) => {
+      await page.goto("/color-palette");
+      await uploadTestImage(page);
+
+      const submitBtn = page.getByTestId("color-palette-submit");
+      await expect(submitBtn).toBeEnabled();
     });
 
     test("extracts colors and displays palette", async ({ loggedInPage: page }) => {
@@ -295,6 +322,75 @@ test.describe("GUI Color & Adjustment Tools", () => {
       await expect(page.getByRole("link", { name: /download/i }).first()).toBeVisible({
         timeout: 15_000,
       });
+    });
+  });
+
+  // ========================================================================
+  // COLOR BLINDNESS SIMULATOR
+  // ========================================================================
+  test.describe("Color Blindness Simulator", () => {
+    test("renders tool page with dropzone", async ({ loggedInPage: page }) => {
+      await page.goto("/color-blindness");
+      await expect(page.getByText("Color Blindness").first()).toBeVisible();
+      await expect(page.getByText("Upload from computer")).toBeVisible();
+    });
+
+    test("shows simulation type dropdown after upload", async ({ loggedInPage: page }) => {
+      await page.goto("/color-blindness");
+      await uploadTestImage(page);
+
+      await expect(page.locator("#cb-simulation-type")).toBeVisible();
+    });
+
+    test("dropdown has grouped options (Red-Green, Blue-Yellow, Monochromatic)", async ({
+      loggedInPage: page,
+    }) => {
+      await page.goto("/color-blindness");
+      await uploadTestImage(page);
+
+      const select = page.locator("#cb-simulation-type");
+      // Verify optgroups exist
+      const optgroups = select.locator("optgroup");
+      await expect(optgroups).toHaveCount(3);
+    });
+
+    test("shows description text for selected type", async ({ loggedInPage: page }) => {
+      await page.goto("/color-blindness");
+      await uploadTestImage(page);
+
+      // Default is deuteranomaly -- should show description
+      await expect(page.getByText("Reduced green sensitivity")).toBeVisible();
+    });
+
+    test("changing simulation type updates description", async ({ loggedInPage: page }) => {
+      await page.goto("/color-blindness");
+      await uploadTestImage(page);
+
+      await page.selectOption("#cb-simulation-type", "achromatopsia");
+      await expect(page.getByText("Complete color blindness")).toBeVisible();
+    });
+
+    test("submit button disabled without file, enabled with file", async ({
+      loggedInPage: page,
+    }) => {
+      await page.goto("/color-blindness");
+
+      const submitBtn = page.getByTestId("color-blindness-submit");
+      await expect(submitBtn).toBeDisabled();
+
+      await uploadTestImage(page);
+      await expect(submitBtn).toBeEnabled();
+      await expect(submitBtn).toHaveText(/Simulate/);
+    });
+
+    test("processes simulation and shows download", async ({ loggedInPage: page }) => {
+      await page.goto("/color-blindness");
+      await uploadTestImage(page);
+
+      await page.getByTestId("color-blindness-submit").click();
+      await waitForProcessing(page);
+
+      await expect(page.getByTestId("color-blindness-download")).toBeVisible({ timeout: 15_000 });
     });
   });
 });

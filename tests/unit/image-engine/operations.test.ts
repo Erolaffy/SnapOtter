@@ -21,7 +21,6 @@ import {
   crop,
   editMetadata,
   flip,
-  getImageInfo,
   grayscale,
   invert,
   optimizeForWeb,
@@ -48,7 +47,7 @@ async function getMeta(img: sharp.Sharp) {
 }
 
 // Helper to get raw pixel data
-async function getPixels(img: sharp.Sharp) {
+async function _getPixels(img: sharp.Sharp) {
   return img.raw().toBuffer({ resolveWithObject: true });
 }
 
@@ -491,7 +490,7 @@ describe("flip", () => {
 
   it("horizontal flip actually mirrors pixels", async () => {
     // Create a 2x1 image: left pixel red, right pixel blue
-    const buf = await sharp({
+    const _buf = await sharp({
       create: { width: 2, height: 1, channels: 3, background: "#000000" },
     })
       .raw()
@@ -2068,7 +2067,7 @@ describe("optimizeForWeb", () => {
     const img = sharp(jpgWithExif);
     const result = await optimizeForWeb(img, { format: "jpeg", quality: 80 });
     const buf = await result.toBuffer();
-    const meta = await sharp(buf).metadata();
+    const _meta = await sharp(buf).metadata();
     // With stripMetadata=true (default), EXIF should be gone or minimal
     // Sharp strips metadata by default unless withMetadata is called
     expect(buf.length).toBeGreaterThan(0);

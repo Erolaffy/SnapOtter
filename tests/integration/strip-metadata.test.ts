@@ -65,7 +65,7 @@ describe("Fixture verification", () => {
   it("test-with-exif.jpg has EXIF data", async () => {
     const meta = await sharp(EXIF_JPG).metadata();
     expect(meta.exif).toBeDefined();
-    expect(meta.exif!.length).toBeGreaterThan(0);
+    expect(meta.exif?.length).toBeGreaterThan(0);
   });
 });
 

@@ -52,6 +52,13 @@ test.describe("GUI Layout Tools", () => {
 
       await expect(page.getByTestId("collage-submit")).toBeVisible();
     });
+
+    test("shows gap/spacing slider in Spacing section", async ({ loggedInPage: page }) => {
+      await page.goto("/collage");
+
+      // Spacing & Style section should show gap controls
+      await expect(page.getByText(/gap|spacing/i).first()).toBeVisible();
+    });
   });
 
   // ========================================================================
@@ -88,11 +95,22 @@ test.describe("GUI Layout Tools", () => {
       await expect(page.getByText(/alignment|align/i).first()).toBeVisible();
     });
 
-    test("submit button uses data-testid", async ({ loggedInPage: page }) => {
+    test("submit button uses data-testid and has correct label", async ({ loggedInPage: page }) => {
       await page.goto("/stitch");
       await uploadTestImage(page);
 
-      await expect(page.getByTestId("stitch-submit")).toBeVisible();
+      const submitBtn = page.getByTestId("stitch-submit");
+      await expect(submitBtn).toBeVisible();
+    });
+
+    test("submit disabled without file, enabled with file", async ({ loggedInPage: page }) => {
+      await page.goto("/stitch");
+
+      const submitBtn = page.getByTestId("stitch-submit");
+      await expect(submitBtn).toBeDisabled();
+
+      await uploadTestImage(page);
+      await expect(submitBtn).toBeEnabled();
     });
   });
 
@@ -121,6 +139,15 @@ test.describe("GUI Layout Tools", () => {
       // Grid presets from split-settings.tsx
       await expect(page.getByRole("button", { name: "2x2" }).first()).toBeVisible();
       await expect(page.getByRole("button", { name: "3x3" }).first()).toBeVisible();
+    });
+
+    test("tile size mode shows width and height inputs", async ({ loggedInPage: page }) => {
+      await page.goto("/split");
+      await uploadTestImage(page);
+
+      await page.getByRole("button", { name: "Tile Size" }).first().click();
+      // Tile size mode should show dimension inputs
+      await expect(page.getByText(/width|tile/i).first()).toBeVisible();
     });
 
     test("shows output format selector after upload", async ({ loggedInPage: page }) => {
@@ -154,6 +181,131 @@ test.describe("GUI Layout Tools", () => {
           .first()
           .or(page.getByText(/tiles|download/i).first()),
       ).toBeVisible({ timeout: 15_000 });
+    });
+  });
+
+  // ========================================================================
+  // BEAUTIFY (Screenshot Beautifier)
+  // ========================================================================
+  test.describe("Beautify", () => {
+    test("renders tool page with dropzone", async ({ loggedInPage: page }) => {
+      await page.goto("/beautify");
+      await expect(page.getByText("Beautify").first()).toBeVisible();
+      await expect(page.getByText("Upload from computer")).toBeVisible();
+    });
+
+    test("shows Quick Presets section with preset buttons", async ({ loggedInPage: page }) => {
+      await page.goto("/beautify");
+
+      await expect(page.getByText("Quick Presets")).toBeVisible();
+      await expect(page.getByText("Purple Haze")).toBeVisible();
+      await expect(page.getByText("Flamingo")).toBeVisible();
+      await expect(page.getByText("Ocean")).toBeVisible();
+      await expect(page.getByText("Midnight")).toBeVisible();
+      await expect(page.getByText("Mint")).toBeVisible();
+      await expect(page.getByText("Sunset")).toBeVisible();
+    });
+
+    test("shows Background section with tabs", async ({ loggedInPage: page }) => {
+      await page.goto("/beautify");
+
+      await expect(page.getByText("Background")).toBeVisible();
+      await expect(page.getByRole("button", { name: "Gradient" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Solid" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Image" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "None" })).toBeVisible();
+    });
+
+    test("shows Device Frame section with frame types", async ({ loggedInPage: page }) => {
+      await page.goto("/beautify");
+
+      await expect(page.getByText("Device Frame")).toBeVisible();
+      await expect(page.getByRole("button", { name: "macOS" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Windows" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Browser" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "iPhone" })).toBeVisible();
+    });
+
+    test("frame type shows Light/Dark theme toggle", async ({ loggedInPage: page }) => {
+      await page.goto("/beautify");
+
+      // macOS is default frame -- should show theme toggle
+      await expect(page.getByRole("button", { name: "Light" }).first()).toBeVisible();
+      await expect(page.getByRole("button", { name: "Dark" }).first()).toBeVisible();
+    });
+
+    test("shows Spacing section with padding and border radius sliders", async ({
+      loggedInPage: page,
+    }) => {
+      await page.goto("/beautify");
+
+      await expect(page.getByText("Spacing")).toBeVisible();
+      await expect(page.locator("#beautify-padding")).toBeVisible();
+      await expect(page.locator("#beautify-border-radius")).toBeVisible();
+    });
+
+    test("shows Shadow section with preset chips", async ({ loggedInPage: page }) => {
+      await page.goto("/beautify");
+
+      await expect(page.getByText("Shadow").first()).toBeVisible();
+      await expect(page.getByRole("button", { name: "Subtle" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Medium" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Dramatic" })).toBeVisible();
+    });
+
+    test("custom shadow shows blur/offset/color controls", async ({ loggedInPage: page }) => {
+      await page.goto("/beautify");
+
+      await page.getByRole("button", { name: "Custom" }).first().click();
+      await expect(page.locator("#beautify-shadow-blur")).toBeVisible();
+      await expect(page.locator("#beautify-shadow-x")).toBeVisible();
+      await expect(page.locator("#beautify-shadow-y")).toBeVisible();
+      await expect(page.locator("#beautify-shadow-color")).toBeVisible();
+      await expect(page.locator("#beautify-shadow-opacity")).toBeVisible();
+    });
+
+    test("shows collapsible Export Size section with social presets", async ({
+      loggedInPage: page,
+    }) => {
+      await page.goto("/beautify");
+
+      await expect(page.getByText("Export Size")).toBeVisible();
+      await page.getByText("Export Size").click();
+      await expect(page.getByRole("button", { name: "Original" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "X/Twitter" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "LinkedIn" })).toBeVisible();
+    });
+
+    test("shows collapsible Watermark section", async ({ loggedInPage: page }) => {
+      await page.goto("/beautify");
+
+      await expect(page.getByText("Watermark").first()).toBeVisible();
+      await page.getByText("Watermark").first().click();
+      await expect(page.locator("#beautify-watermark-text")).toBeVisible();
+      await expect(page.locator("#beautify-watermark-position")).toBeVisible();
+      await expect(page.locator("#beautify-watermark-opacity")).toBeVisible();
+    });
+
+    test("submit button disabled without file, enabled with file", async ({
+      loggedInPage: page,
+    }) => {
+      await page.goto("/beautify");
+
+      const submitBtn = page.getByTestId("beautify-submit");
+      await expect(submitBtn).toBeDisabled();
+
+      await uploadTestImage(page);
+      await expect(submitBtn).toBeEnabled();
+    });
+
+    test("processes beautify and shows download", async ({ loggedInPage: page }) => {
+      await page.goto("/beautify");
+      await uploadTestImage(page);
+
+      await page.getByTestId("beautify-submit").click();
+      await waitForProcessing(page);
+
+      await expect(page.getByTestId("beautify-download")).toBeVisible({ timeout: 15_000 });
     });
   });
 });

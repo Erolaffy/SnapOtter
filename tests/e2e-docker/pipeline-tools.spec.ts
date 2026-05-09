@@ -617,4 +617,132 @@ test.describe("Pipeline with various tools", () => {
     const body = await res.json();
     expect(body.downloadUrl).toBeTruthy();
   });
+
+  test("color-blindness then resize pipeline", async ({ request }) => {
+    const res = await request.post("/api/v1/pipeline/execute", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "test.png", mimeType: "image/png", buffer: PNG_200x150 },
+        pipeline: JSON.stringify({
+          steps: [
+            {
+              toolId: "color-blindness",
+              settings: { simulationType: "deuteranopia" },
+            },
+            { toolId: "resize", settings: { width: 100, fit: "contain" } },
+          ],
+        }),
+      },
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.downloadUrl).toBeTruthy();
+  });
+
+  test("meme-generator then compress pipeline", async ({ request }) => {
+    const res = await request.post("/api/v1/pipeline/execute", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "test.jpg", mimeType: "image/jpeg", buffer: JPG_100x100 },
+        pipeline: JSON.stringify({
+          steps: [
+            {
+              toolId: "meme-generator",
+              settings: {
+                textLayout: "top-bottom",
+                textBoxes: [
+                  { id: "top", text: "PIPELINE" },
+                  { id: "bottom", text: "MEMES" },
+                ],
+              },
+            },
+            { toolId: "compress", settings: { quality: 70 } },
+          ],
+        }),
+      },
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.downloadUrl).toBeTruthy();
+  });
+
+  test("beautify then convert pipeline", async ({ request }) => {
+    const res = await request.post("/api/v1/pipeline/execute", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "test.png", mimeType: "image/png", buffer: PNG_200x150 },
+        pipeline: JSON.stringify({
+          steps: [
+            {
+              toolId: "beautify",
+              settings: {
+                backgroundType: "solid",
+                backgroundColor: "#1a1a2e",
+                padding: 32,
+                borderRadius: 8,
+                shadowPreset: "none",
+                frame: "none",
+              },
+            },
+            { toolId: "convert", settings: { format: "webp" } },
+          ],
+        }),
+      },
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.downloadUrl).toBeTruthy();
+  });
+
+  test("four-step pipeline: resize, adjust-colors, border, compress", async ({ request }) => {
+    const res = await request.post("/api/v1/pipeline/execute", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "sample.jpg", mimeType: "image/jpeg", buffer: JPG_SAMPLE },
+        pipeline: JSON.stringify({
+          steps: [
+            { toolId: "resize", settings: { width: 500, fit: "contain" } },
+            { toolId: "adjust-colors", settings: { brightness: 5, contrast: 10 } },
+            { toolId: "border", settings: { size: 5, color: "#333333" } },
+            { toolId: "compress", settings: { quality: 75 } },
+          ],
+        }),
+      },
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.downloadUrl).toBeTruthy();
+    expect(body.processedSize).toBeGreaterThan(0);
+  });
+});
+
+// ─── Pipeline Auth Failure ──────────────────────────────────────
+
+test.describe("Pipeline auth failure", () => {
+  test("pipeline execution without token returns 401", async ({ request }) => {
+    const res = await request.post("/api/v1/pipeline/execute", {
+      multipart: {
+        file: { name: "test.png", mimeType: "image/png", buffer: PNG_200x150 },
+        pipeline: JSON.stringify({
+          steps: [{ toolId: "resize", settings: { width: 100 } }],
+        }),
+      },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test("pipeline save without token returns 401", async ({ request }) => {
+    const res = await request.post("/api/v1/pipeline/save", {
+      data: {
+        name: "Unauthorized Pipeline",
+        steps: [{ toolId: "resize", settings: { width: 100 } }],
+      },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test("pipeline list without token returns 401", async ({ request }) => {
+    const res = await request.get("/api/v1/pipeline/list");
+    expect(res.status()).toBe(401);
+  });
 });

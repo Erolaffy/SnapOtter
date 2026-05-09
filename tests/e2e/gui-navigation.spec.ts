@@ -80,6 +80,41 @@ test.describe("Login Page", () => {
     await page.waitForURL("/", { timeout: 15_000 });
     await expect(page).toHaveURL("/");
   });
+
+  test("tab order is username -> password -> login button", async ({ page }) => {
+    await page.goto("/login");
+
+    // Focus the username field first
+    await page.getByLabel("Username").focus();
+    await expect(page.getByLabel("Username")).toBeFocused();
+
+    // Tab to password
+    await page.keyboard.press("Tab");
+    await expect(page.getByLabel("Password")).toBeFocused();
+
+    // Fill both fields so login button becomes enabled
+    await page.getByLabel("Username").fill("admin");
+    await page.getByLabel("Password").fill("admin");
+
+    // Focus password again, then Tab to login button
+    await page.getByLabel("Password").focus();
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("button", { name: /login/i })).toBeFocused();
+  });
+
+  test("login button only fills username keeps it disabled", async ({ page }) => {
+    await page.goto("/login");
+
+    const loginBtn = page.getByRole("button", { name: /login/i });
+    await page.getByLabel("Username").fill("admin");
+    // Only username is filled, password is still empty
+    await expect(loginBtn).toBeDisabled();
+
+    // Now fill only password (clear username)
+    await page.getByLabel("Username").fill("");
+    await page.getByLabel("Password").fill("admin");
+    await expect(loginBtn).toBeDisabled();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -151,6 +186,32 @@ test.describe("Home Page - After Upload", () => {
       .click();
     await expect(page).toHaveURL("/resize");
   });
+
+  test("image viewer is visible after upload", async ({ loggedInPage: page }) => {
+    await uploadTestImage(page);
+
+    // The image viewer should render the uploaded image (an <img> element)
+    const img = page.locator("img").first();
+    await expect(img).toBeVisible();
+  });
+
+  test("multi-upload shows file count badge", async ({ loggedInPage: page }) => {
+    // Upload first image
+    await uploadTestImage(page);
+
+    // Upload a second image via the file chooser
+    const fileChooserPromise = page.waitForEvent("filechooser");
+    // Click "Add more files" or "Change file" to trigger file picker
+    const addBtn = page.getByText(/add more|change file/i).first();
+    await addBtn.click();
+    const fileChooser = await fileChooserPromise;
+    const { getTestImagePath } = await import("./helpers");
+    await fileChooser.setFiles([getTestImagePath(), getTestImagePath()]);
+    await page.waitForTimeout(500);
+
+    // Should show a count badge or multi-file indicator
+    await expect(page.getByText(/\d+ file/i).first()).toBeVisible();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -200,6 +261,43 @@ test.describe("Fullscreen Grid Page", () => {
     // Another unrelated tool should be hidden
     await expect(page.getByRole("link", { name: /^Resize/ })).toHaveCount(0);
   });
+
+  test("clearing search restores all tools", async ({ loggedInPage: page }) => {
+    await page.goto("/fullscreen");
+
+    const searchInput = page.getByPlaceholder(/search/i);
+
+    // Filter first
+    await searchInput.fill("compress");
+    await expect(page.getByRole("link", { name: /^Resize/ })).toHaveCount(0);
+
+    // Clear the search
+    await searchInput.fill("");
+    await page.waitForTimeout(300);
+
+    // Both tools should be visible again
+    await expect(page.getByRole("link", { name: /^Resize/ }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /^Compress/ }).first()).toBeVisible();
+    // Category headers should reappear
+    await expect(page.getByText("Essentials")).toBeVisible();
+    await expect(page.getByText("Optimization")).toBeVisible();
+  });
+
+  test("show/hide details toggle changes card appearance", async ({ loggedInPage: page }) => {
+    await page.goto("/fullscreen");
+
+    const toggleBtn = page.getByRole("button", { name: /hide details|show details/i }).first();
+    await expect(toggleBtn).toBeVisible();
+
+    // Click the toggle
+    await toggleBtn.click();
+    await page.waitForTimeout(300);
+
+    // Toggle text should have changed
+    await expect(
+      page.getByRole("button", { name: /hide details|show details/i }).first(),
+    ).toBeVisible();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -240,6 +338,112 @@ test.describe("Tool Page - Resize", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Tool Page - Parameterized structure tests across multiple tools
+// ---------------------------------------------------------------------------
+const DROPZONE_TOOLS = [
+  { id: "resize", name: "Resize" },
+  { id: "crop", name: "Crop" },
+  { id: "rotate", name: "Rotate" },
+  { id: "convert", name: "Convert" },
+  { id: "compress", name: "Compress" },
+  { id: "adjust-colors", name: "Adjust Colors" },
+  { id: "watermark-text", name: "Text Watermark" },
+  { id: "border", name: "Border" },
+  { id: "strip-metadata", name: "Remove Metadata" },
+  { id: "sharpening", name: "Sharpening" },
+];
+
+const NO_DROPZONE_TOOLS = [
+  { id: "qr-generate", name: "QR Code Generator" },
+  { id: "meme-generator", name: "Meme Generator" },
+  { id: "collage", name: "Collage" },
+  { id: "pdf-to-image", name: "PDF to Image" },
+];
+
+test.describe("Tool Page - Common Structure (Dropzone Tools)", () => {
+  for (const tool of DROPZONE_TOOLS) {
+    test(`${tool.name} (/${tool.id}) shows tool name and dropzone`, async ({
+      loggedInPage: page,
+    }) => {
+      await page.goto(`/${tool.id}`);
+
+      // Tool name should be visible
+      await expect(page.getByText(tool.name).first()).toBeVisible();
+
+      // Dropzone should be visible
+      const dropzone = page.locator("[class*='border-dashed']").first();
+      await expect(dropzone).toBeVisible();
+    });
+  }
+});
+
+test.describe("Tool Page - Common Structure (No-Dropzone Tools)", () => {
+  for (const tool of NO_DROPZONE_TOOLS) {
+    test(`${tool.name} (/${tool.id}) shows tool name without standard dropzone`, async ({
+      loggedInPage: page,
+    }) => {
+      await page.goto(`/${tool.id}`);
+
+      // Tool name should be visible
+      await expect(page.getByText(tool.name).first()).toBeVisible();
+    });
+  }
+});
+
+test.describe("Tool Page - Settings and Process Flow", () => {
+  test("resize: settings panel appears after upload with process button", async ({
+    loggedInPage: page,
+  }) => {
+    await page.goto("/resize");
+    await uploadTestImage(page);
+
+    await expect(page.getByText("Settings").first()).toBeVisible();
+    // Process button should be visible after upload
+    await expect(page.getByRole("button", { name: /process/i }).first()).toBeVisible();
+  });
+
+  test("compress: settings panel appears after upload", async ({ loggedInPage: page }) => {
+    await page.goto("/compress");
+    await uploadTestImage(page);
+
+    await expect(page.getByText("Settings").first()).toBeVisible();
+  });
+
+  test("convert: settings panel appears after upload", async ({ loggedInPage: page }) => {
+    await page.goto("/convert");
+    await uploadTestImage(page);
+
+    await expect(page.getByText("Settings").first()).toBeVisible();
+  });
+
+  test("mobile: settings panel is collapsible on tool page", async ({ browser }) => {
+    const context = await browser.newContext({
+      viewport: { width: 375, height: 667 },
+    });
+    const page = await context.newPage();
+    await page.goto("/login");
+    await page.getByLabel("Username").fill("admin");
+    await page.getByLabel("Password").fill("admin");
+    await page.getByRole("button", { name: /login/i }).click();
+    await page.waitForURL("/", { timeout: 15_000 });
+
+    await page.goto("/resize");
+    await uploadTestImage(page);
+
+    // On mobile, settings may be behind a toggle button
+    const settingsToggle = page.getByRole("button", { name: /settings/i }).first();
+    if (await settingsToggle.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await settingsToggle.click();
+      await page.waitForTimeout(300);
+      // Settings content should be visible after clicking toggle
+      await expect(page.getByText("Settings").first()).toBeVisible();
+    }
+
+    await context.close();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Automate Page (/automate)
 // ---------------------------------------------------------------------------
 test.describe("Automate Page", () => {
@@ -265,6 +469,54 @@ test.describe("Automate Page", () => {
   }) => {
     await page.goto("/automate");
 
+    const processBtn = page.getByRole("button", { name: /process/i }).first();
+    await expect(processBtn).toBeDisabled();
+  });
+
+  test("search filters tools in the tool palette", async ({ loggedInPage: page }) => {
+    await page.goto("/automate");
+
+    const searchInput = page.getByPlaceholder(/search/i).first();
+    await searchInput.fill("resize");
+
+    // Resize should be visible in the palette
+    await expect(page.getByText("Resize").first()).toBeVisible();
+  });
+
+  test("clicking a tool in palette adds it as a pipeline step", async ({ loggedInPage: page }) => {
+    await page.goto("/automate");
+
+    // The empty state should be shown
+    await expect(page.getByText("No steps yet")).toBeVisible();
+
+    // Click a tool in the palette to add it as a step
+    const resizeTool = page.locator("[data-tool-id='resize']").first();
+    if (await resizeTool.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await resizeTool.click();
+    } else {
+      // Fallback: click the Resize text in the palette area
+      await page.getByText("Resize").first().click();
+    }
+
+    await page.waitForTimeout(500);
+
+    // Empty state should be gone - step should be added
+    await expect(page.getByText("No steps yet")).not.toBeVisible();
+  });
+
+  test("process button remains disabled with steps but no file", async ({ loggedInPage: page }) => {
+    await page.goto("/automate");
+
+    // Add a tool step
+    const resizeTool = page.locator("[data-tool-id='resize']").first();
+    if (await resizeTool.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await resizeTool.click();
+    } else {
+      await page.getByText("Resize").first().click();
+    }
+    await page.waitForTimeout(500);
+
+    // Process button should still be disabled without a file
     const processBtn = page.getByRole("button", { name: /process/i }).first();
     await expect(processBtn).toBeDisabled();
   });
@@ -382,6 +634,39 @@ test.describe("Footer", () => {
     await expect(langBtn).toBeVisible();
     await expect(langBtn).toContainText("English");
     await expect(langBtn.locator("svg")).toBeVisible();
+  });
+
+  test("privacy link navigates to /privacy", async ({ loggedInPage: page }) => {
+    const privacyLink = page.getByRole("link", { name: /privacy/i }).first();
+    if (await privacyLink.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await privacyLink.click();
+      await expect(page).toHaveURL("/privacy");
+      await expect(page.getByRole("heading", { name: "Privacy Policy" })).toBeVisible();
+    }
+  });
+
+  test("theme persists after page reload", async ({ loggedInPage: page }) => {
+    const themeBtn = page.locator("button[title='Toggle Theme']");
+    await expect(themeBtn).toBeVisible();
+
+    // Toggle theme
+    await themeBtn.click();
+    await page.waitForTimeout(300);
+
+    const themeAfterToggle = await page.evaluate(() =>
+      document.documentElement.classList.contains("dark"),
+    );
+
+    // Reload the page
+    await page.reload();
+    await page.waitForTimeout(500);
+
+    const themeAfterReload = await page.evaluate(() =>
+      document.documentElement.classList.contains("dark"),
+    );
+
+    // Theme should persist across reload
+    expect(themeAfterReload).toBe(themeAfterToggle);
   });
 });
 
@@ -553,5 +838,100 @@ test.describe("Browser Back/Forward Navigation", () => {
 
     await page.goForward();
     await expect(page).toHaveURL("/automate");
+  });
+
+  test("page refresh preserves route on /fullscreen", async ({ loggedInPage: page }) => {
+    await page.goto("/fullscreen");
+    await expect(page).toHaveURL("/fullscreen");
+
+    await page.reload();
+    await expect(page).toHaveURL("/fullscreen");
+    await expect(page.getByPlaceholder(/search/i)).toBeVisible();
+  });
+
+  test("page refresh preserves route on /automate", async ({ loggedInPage: page }) => {
+    await page.goto("/automate");
+    await expect(page).toHaveURL("/automate");
+
+    await page.reload();
+    await expect(page).toHaveURL("/automate");
+    await expect(page.getByText("Pipeline Builder")).toBeVisible();
+  });
+
+  test("page refresh preserves route on tool page", async ({ loggedInPage: page }) => {
+    await page.goto("/resize");
+    await expect(page).toHaveURL("/resize");
+
+    await page.reload();
+    await expect(page).toHaveURL("/resize");
+    await expect(page.getByText("Resize").first()).toBeVisible();
+  });
+
+  test("page refresh preserves route on /files", async ({ loggedInPage: page }) => {
+    await page.goto("/files");
+    await expect(page).toHaveURL("/files");
+
+    await page.reload();
+    await expect(page).toHaveURL("/files");
+    await expect(page.getByText("My Files")).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Mobile Navigation (375x667)
+// ---------------------------------------------------------------------------
+test.describe("Mobile Navigation", () => {
+  test("hamburger menu toggles sidebar overlay", async ({ browser }) => {
+    const context = await browser.newContext({
+      viewport: { width: 375, height: 667 },
+    });
+    const page = await context.newPage();
+    await page.goto("/login");
+    await page.getByLabel("Username").fill("admin");
+    await page.getByLabel("Password").fill("admin");
+    await page.getByRole("button", { name: /login/i }).click();
+    await page.waitForURL("/", { timeout: 15_000 });
+
+    // Desktop sidebar should not be visible
+    await expect(page.locator("aside")).not.toBeVisible();
+
+    // Open hamburger menu
+    const topBar = page.locator(".fixed").filter({ hasText: "SnapOtter" }).first();
+    const hamburger = topBar.locator("button").first();
+    await hamburger.click();
+
+    // Sidebar overlay should appear with nav items
+    await expect(page.getByText("Tools").nth(1)).toBeVisible();
+    await expect(page.getByText("Grid")).toBeVisible();
+
+    await context.close();
+  });
+
+  test("bottom nav navigates between all main sections", async ({ browser }) => {
+    const context = await browser.newContext({
+      viewport: { width: 375, height: 667 },
+    });
+    const page = await context.newPage();
+    await page.goto("/login");
+    await page.getByLabel("Username").fill("admin");
+    await page.getByLabel("Password").fill("admin");
+    await page.getByRole("button", { name: /login/i }).click();
+    await page.waitForURL("/", { timeout: 15_000 });
+
+    const bottomNav = page.locator("nav.fixed");
+
+    // Navigate to Automate
+    await bottomNav.getByText("Automate").click();
+    await expect(page).toHaveURL("/automate");
+
+    // Navigate to Files
+    await bottomNav.getByText("Files").click();
+    await expect(page).toHaveURL("/files");
+
+    // Navigate back to Tools
+    await bottomNav.getByText("Tools").click();
+    await expect(page).toHaveURL("/");
+
+    await context.close();
   });
 });

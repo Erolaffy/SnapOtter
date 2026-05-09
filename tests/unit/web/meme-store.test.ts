@@ -15,7 +15,6 @@ import {
   CATEGORIES,
   FONT_FAMILY_MAP,
   FONT_OPTIONS,
-  injectMemeFonts,
   PRESET_LAYOUTS,
   useMemeStore,
 } from "@/stores/meme-store";
@@ -294,7 +293,7 @@ describe("useMemeStore", () => {
     it("sets loading true and error null on start", async () => {
       useMemeStore.setState({ loading: false, error: "old" });
       fetchMock.mockReturnValue(new Promise(() => {}));
-      const promise = useMemeStore.getState().fetchTemplates();
+      const _promise = useMemeStore.getState().fetchTemplates();
       expect(useMemeStore.getState().loading).toBe(true);
       expect(useMemeStore.getState().error).toBeNull();
       fetchMock.mockReset();
@@ -332,7 +331,7 @@ describe("useMemeStore", () => {
     it("sets generating true on start", async () => {
       useMemeStore.setState({ selectedTemplate: TEMPLATE });
       fetchMock.mockReturnValue(new Promise(() => {}));
-      const promise = useMemeStore.getState().generateMeme();
+      const _promise = useMemeStore.getState().generateMeme();
       expect(useMemeStore.getState().generating).toBe(true);
       expect(useMemeStore.getState().error).toBeNull();
       fetchMock.mockReset();
@@ -580,7 +579,7 @@ describe("useMemeStore", () => {
       expect(PRESET_LAYOUTS["top-bottom"].boxes).toHaveLength(2);
       expect(PRESET_LAYOUTS["top-only"].boxes).toHaveLength(1);
       expect(PRESET_LAYOUTS["bottom-only"].boxes).toHaveLength(1);
-      expect(PRESET_LAYOUTS["center"].boxes).toHaveLength(1);
+      expect(PRESET_LAYOUTS.center.boxes).toHaveLength(1);
       expect(PRESET_LAYOUTS["side-by-side"].boxes).toHaveLength(2);
 
       for (const layout of Object.values(PRESET_LAYOUTS)) {

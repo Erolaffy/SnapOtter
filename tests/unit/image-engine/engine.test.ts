@@ -15,7 +15,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 const require = createRequire(
   path.resolve(__dirname, "../../../packages/image-engine/src/index.ts"),
 );
-const sharp = require("sharp") as typeof import("sharp").default;
+const _sharp = require("sharp") as typeof import("sharp").default;
 
 import { processImage } from "@snapotter/image-engine";
 

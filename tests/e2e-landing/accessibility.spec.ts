@@ -54,19 +54,13 @@ test.describe("Meta Tags", () => {
     const metaDesc = page.locator('meta[name="description"]');
     const content = await metaDesc.getAttribute("content");
     expect(content).toBeTruthy();
-    expect(content!.length).toBeGreaterThan(10);
+    expect(content?.length).toBeGreaterThan(10);
   });
 
   test("homepage has Open Graph tags", async ({ page }) => {
     await page.goto("/");
-    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
-      "content",
-      /.+/,
-    );
-    await expect(page.locator('meta[property="og:description"]')).toHaveAttribute(
-      "content",
-      /.+/,
-    );
+    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute("content", /.+/);
+    await expect(page.locator('meta[property="og:description"]')).toHaveAttribute("content", /.+/);
   });
 });
 

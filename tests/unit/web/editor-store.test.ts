@@ -12,7 +12,7 @@ vi.mock("zustand/middleware", async (importOriginal) => {
 // ---------------------------------------------------------------------------
 
 import { useEditorStore } from "@/stores/editor-store";
-import type { CanvasObject, CropState, SelectionState, ToolType } from "@/types/editor";
+import type { CanvasObject, CropState, SelectionState } from "@/types/editor";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1276,7 +1276,7 @@ function makeEllipse(
   };
 }
 
-function makeArrow(overrides: Partial<{ id: string; layerId: string }> = {}): CanvasObject {
+function _makeArrow(overrides: Partial<{ id: string; layerId: string }> = {}): CanvasObject {
   return {
     id: overrides.id ?? "arrow-1",
     type: "arrow",
@@ -1622,7 +1622,7 @@ describe("invertSelection for bounds-based selections", () => {
     };
     act((s) => s.setSelection(sel));
     act((s) => s.invertSelection());
-    const mask = state().selection!.mask!;
+    const mask = state().selection?.mask!;
     expect(mask[2 * 10 + 2]).toBe(0);
     expect(mask[5 * 10 + 5]).toBe(0);
     expect(mask[0 * 10 + 0]).toBe(1);
@@ -1787,7 +1787,7 @@ describe("updateLayerThumbnail", () => {
   it("does not affect other layers", () => {
     act((s) => s.addLayer());
     const firstId = state().layers[0].id;
-    const secondId = state().layers[1].id;
+    const _secondId = state().layers[1].id;
     act((s) => s.updateLayerThumbnail(firstId, "data:image/png;base64,first"));
     expect(state().layers[0].thumbnail).toBe("data:image/png;base64,first");
     expect(state().layers[1].thumbnail).toBeNull();

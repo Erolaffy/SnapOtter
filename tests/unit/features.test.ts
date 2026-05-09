@@ -34,7 +34,7 @@ describe("Feature bundles", () => {
     expect(FEATURE_BUNDLES["object-eraser-colorize"]).toBeDefined();
     expect(FEATURE_BUNDLES["upscale-enhance"]).toBeDefined();
     expect(FEATURE_BUNDLES["photo-restoration"]).toBeDefined();
-    expect(FEATURE_BUNDLES["ocr"]).toBeDefined();
+    expect(FEATURE_BUNDLES.ocr).toBeDefined();
   });
 
   it("TOOL_BUNDLE_MAP covers all sidecar tools", () => {

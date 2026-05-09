@@ -561,8 +561,8 @@ describe("detectFaceLandmarks", () => {
 
     expect(result.faceDetected).toBe(true);
     expect(result.landmarks).toBeDefined();
-    expect(result.landmarks!.leftEye).toEqual({ x: 100, y: 150 });
-    expect(result.landmarks!.rightEye).toEqual({ x: 200, y: 150 });
+    expect(result.landmarks?.leftEye).toEqual({ x: 100, y: 150 });
+    expect(result.landmarks?.rightEye).toEqual({ x: 200, y: 150 });
     expect(result.imageWidth).toBe(800);
     expect(result.imageHeight).toBe(600);
   });

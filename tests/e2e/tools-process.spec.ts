@@ -11,7 +11,7 @@ test.describe("Tool processing (core tools)", () => {
     await uploadTestImage(page);
 
     // Fill in width (required)
-    const widthInput = page.locator("input").filter({ hasText: /^$/ }).nth(0);
+    const _widthInput = page.locator("input").filter({ hasText: /^$/ }).nth(0);
     await page.locator("input[placeholder='Auto']").first().fill("50");
 
     await page.getByRole("button", { name: "Resize" }).click();

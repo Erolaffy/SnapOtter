@@ -759,6 +759,162 @@ test.describe("QR Read", () => {
   });
 });
 
+// ─── Compare — Additional ──────────────────────────────────────
+
+test.describe("Compare — additional", () => {
+  test("compare HEIC and PNG images", async ({ request }) => {
+    const { body, contentType } = buildMultipart(
+      [
+        { name: "file", filename: "a.heic", contentType: "image/heic", buffer: HEIC_200x150 },
+        { name: "file", filename: "b.png", contentType: "image/png", buffer: PNG_200x150 },
+      ],
+      [],
+    );
+    const res = await request.post("/api/v1/tools/compare", {
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+      data: body,
+    });
+    expect(res.ok()).toBe(true);
+    const json = await res.json();
+    expect(typeof json.similarity).toBe("number");
+    expect(json.similarity).toBeGreaterThanOrEqual(0);
+    expect(json.similarity).toBeLessThanOrEqual(100);
+  });
+
+  test("compare two different format images of same content", async ({ request }) => {
+    const { body, contentType } = buildMultipart(
+      [
+        { name: "file", filename: "a.webp", contentType: "image/webp", buffer: WEBP_50x50 },
+        { name: "file", filename: "b.webp", contentType: "image/webp", buffer: WEBP_50x50 },
+      ],
+      [],
+    );
+    const res = await request.post("/api/v1/tools/compare", {
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+      data: body,
+    });
+    expect(res.ok()).toBe(true);
+    const json = await res.json();
+    // Same image should have very high similarity
+    expect(json.similarity).toBeGreaterThan(99);
+  });
+});
+
+// ─── Find Duplicates — Additional ─────────────────────────────
+
+test.describe("Find Duplicates — additional", () => {
+  test("find duplicates with 4 files (2 pairs)", async ({ request }) => {
+    const { body, contentType } = buildMultipart(
+      [
+        { name: "file", filename: "a.png", contentType: "image/png", buffer: PNG_200x150 },
+        { name: "file", filename: "b.jpg", contentType: "image/jpeg", buffer: JPG_100x100 },
+        { name: "file", filename: "c.png", contentType: "image/png", buffer: PNG_200x150 },
+        { name: "file", filename: "d.jpg", contentType: "image/jpeg", buffer: JPG_100x100 },
+      ],
+      [],
+    );
+    const res = await request.post("/api/v1/tools/find-duplicates", {
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+      data: body,
+    });
+    expect(res.ok()).toBe(true);
+    const json = await res.json();
+    expect(json.duplicateGroups).toBeInstanceOf(Array);
+    expect(json.duplicateGroups.length).toBeGreaterThan(0);
+    expect(json.totalImages).toBe(4);
+  });
+
+  test("find duplicates with HEIC images", async ({ request }) => {
+    const { body, contentType } = buildMultipart(
+      [
+        { name: "file", filename: "a.heic", contentType: "image/heic", buffer: HEIC_200x150 },
+        { name: "file", filename: "b.heic", contentType: "image/heic", buffer: HEIC_200x150 },
+        { name: "file", filename: "c.png", contentType: "image/png", buffer: PNG_200x150 },
+      ],
+      [],
+    );
+    const res = await request.post("/api/v1/tools/find-duplicates", {
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+      data: body,
+    });
+    expect(res.ok()).toBe(true);
+    const json = await res.json();
+    expect(json.duplicateGroups).toBeInstanceOf(Array);
+  });
+});
+
+// ─── QR Generate — Output Verification ─────────────────────────
+
+test.describe("QR Generate — output verification", () => {
+  test("QR code image can be downloaded", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/qr-generate", {
+      headers: { Authorization: `Bearer ${token}` },
+      data: {
+        text: "https://test.snapotter.app/verify",
+        size: 300,
+      },
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.downloadUrl).toBeTruthy();
+
+    // Download the QR code
+    const dlRes = await request.get(body.downloadUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(dlRes.ok()).toBe(true);
+    const buffer = Buffer.from(await dlRes.body());
+    expect(buffer.length).toBeGreaterThan(0);
+  });
+
+  test("QR code with all error correction levels", async ({ request }) => {
+    const levels = ["L", "M", "Q", "H"] as const;
+    for (const errorCorrection of levels) {
+      const res = await request.post("/api/v1/tools/qr-generate", {
+        headers: { Authorization: `Bearer ${token}` },
+        data: {
+          text: `EC-${errorCorrection}`,
+          size: 200,
+          errorCorrection,
+        },
+      });
+      expect(res.ok(), `QR with EC=${errorCorrection} should succeed`).toBe(true);
+      const body = await res.json();
+      expect(body.downloadUrl).toBeTruthy();
+    }
+  });
+});
+
+// ─── Color Palette — Additional ────────────────────────────────
+
+test.describe("Color Palette — additional", () => {
+  test("extract colors from WebP image", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/color-palette", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "test.webp", mimeType: "image/webp", buffer: WEBP_50x50 },
+      },
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.colors).toBeInstanceOf(Array);
+    expect(body.colors.length).toBeGreaterThan(0);
+  });
+
+  test("color palette on content image has rich palette", async ({ request }) => {
+    const portrait = contentFixture("portrait-color.jpg");
+    const res = await request.post("/api/v1/tools/color-palette", {
+      headers: { Authorization: `Bearer ${token}` },
+      multipart: {
+        file: { name: "portrait.jpg", mimeType: "image/jpeg", buffer: portrait },
+      },
+    });
+    expect(res.ok()).toBe(true);
+    const body = await res.json();
+    expect(body.colors.length).toBeGreaterThanOrEqual(3);
+  });
+});
+
 // ─── Auth Failure ──────────────────────────────────────────────────
 
 test.describe("Auth failure", () => {
@@ -782,6 +938,56 @@ test.describe("Auth failure", () => {
     const res = await request.post("/api/v1/tools/color-palette", {
       multipart: {
         file: { name: "test.png", mimeType: "image/png", buffer: PNG_200x150 },
+      },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test("compare without token returns 401", async ({ request }) => {
+    const { body, contentType } = buildMultipart(
+      [
+        { name: "file", filename: "a.png", contentType: "image/png", buffer: PNG_200x150 },
+        { name: "file", filename: "b.png", contentType: "image/png", buffer: PNG_200x150 },
+      ],
+      [],
+    );
+    const res = await request.post("/api/v1/tools/compare", {
+      headers: { "Content-Type": contentType },
+      data: body,
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test("find-duplicates without token returns 401", async ({ request }) => {
+    const { body, contentType } = buildMultipart(
+      [
+        { name: "file", filename: "a.png", contentType: "image/png", buffer: PNG_200x150 },
+        { name: "file", filename: "b.png", contentType: "image/png", buffer: PNG_200x150 },
+      ],
+      [],
+    );
+    const res = await request.post("/api/v1/tools/find-duplicates", {
+      headers: { "Content-Type": contentType },
+      data: body,
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test("barcode-read without token returns 401", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/barcode-read", {
+      multipart: {
+        file: { name: "test.png", mimeType: "image/png", buffer: PNG_200x150 },
+        settings: JSON.stringify({}),
+      },
+    });
+    expect(res.status()).toBe(401);
+  });
+
+  test("image-to-base64 without token returns 401", async ({ request }) => {
+    const res = await request.post("/api/v1/tools/image-to-base64", {
+      multipart: {
+        file: { name: "test.png", mimeType: "image/png", buffer: PNG_200x150 },
+        settings: JSON.stringify({}),
       },
     });
     expect(res.status()).toBe(401);

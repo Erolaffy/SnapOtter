@@ -667,3 +667,236 @@ describe("Selective correction edge cases", () => {
     expect(res.statusCode).toBe(200);
   });
 });
+
+// ── Partial corrections object ──────────────────────────────────
+describe("Partial corrections object", () => {
+  it("accepts corrections with only some fields specified", async () => {
+    const res = await postTool({
+      corrections: {
+        exposure: true,
+        contrast: false,
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+  });
+
+  it("accepts empty corrections object (all defaults)", async () => {
+    const res = await postTool({
+      corrections: {},
+    });
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+  });
+});
+
+// ── Output format verification for different inputs ─────────────
+describe("Output format for different input formats", () => {
+  it("preserves WebP format for WebP input", async () => {
+    const res = await postTool({ mode: "auto" }, WEBP, "test.webp", "image/webp");
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+
+    const dlRes = await app.inject({
+      method: "GET",
+      url: result.downloadUrl,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const meta = await sharp(dlRes.rawPayload).metadata();
+    expect(meta.format).toBe("webp");
+  });
+
+  it("preserves PNG format for PNG input", async () => {
+    const res = await postTool({ mode: "auto" }, PNG, "test.png", "image/png");
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+
+    const dlRes = await app.inject({
+      method: "GET",
+      url: result.downloadUrl,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const meta = await sharp(dlRes.rawPayload).metadata();
+    expect(meta.format).toBe("png");
+  });
+});
+
+// ── Output dimension verification ───────────────────────────────
+describe("Output dimension verification", () => {
+  it("preserves JPEG input dimensions", async () => {
+    const res = await postTool({ mode: "auto" }, JPG, "test.jpg", "image/jpeg");
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+
+    const dlRes = await app.inject({
+      method: "GET",
+      url: result.downloadUrl,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const meta = await sharp(dlRes.rawPayload).metadata();
+    expect(meta.width).toBe(100);
+    expect(meta.height).toBe(100);
+  });
+
+  it("preserves WebP input dimensions", async () => {
+    const res = await postTool({ mode: "landscape" }, WEBP, "test.webp", "image/webp");
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+
+    const dlRes = await app.inject({
+      method: "GET",
+      url: result.downloadUrl,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const meta = await sharp(dlRes.rawPayload).metadata();
+    expect(meta.width).toBe(50);
+    expect(meta.height).toBe(50);
+  });
+});
+
+// ── Response structure ──────────────────────────────────────────
+describe("Response structure", () => {
+  it("returns all expected fields in 200 response", async () => {
+    const res = await postTool({ mode: "auto" });
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+
+    expect(result).toHaveProperty("jobId");
+    expect(result).toHaveProperty("downloadUrl");
+    expect(result).toHaveProperty("originalSize");
+    expect(result).toHaveProperty("processedSize");
+    expect(typeof result.jobId).toBe("string");
+    expect(typeof result.downloadUrl).toBe("string");
+    expect(typeof result.originalSize).toBe("number");
+    expect(typeof result.processedSize).toBe("number");
+    expect(result.processedSize).toBeGreaterThan(0);
+  });
+});
+
+// ── Analyze endpoint with different formats ─────────────────────
+describe("Analyze endpoint format coverage", () => {
+  it("analyze works with PNG input", async () => {
+    const { body: payload, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.png", contentType: "image/png", content: PNG },
+    ]);
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/image-enhancement/analyze",
+      payload,
+      headers: {
+        "content-type": contentType,
+        authorization: `Bearer ${adminToken}`,
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.corrections).toBeDefined();
+    expect(typeof result.corrections).toBe("object");
+  });
+
+  it("analyze returns consistent structure across formats", async () => {
+    const formats = [
+      { buf: JPG, name: "test.jpg", ct: "image/jpeg" },
+      { buf: PNG, name: "test.png", ct: "image/png" },
+    ];
+
+    for (const fmt of formats) {
+      const { body: payload, contentType } = createMultipartPayload([
+        { name: "file", filename: fmt.name, contentType: fmt.ct, content: fmt.buf },
+      ]);
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/v1/tools/image-enhancement/analyze",
+        payload,
+        headers: {
+          "content-type": contentType,
+          authorization: `Bearer ${adminToken}`,
+        },
+      });
+      expect(res.statusCode).toBe(200);
+      const result = JSON.parse(res.body);
+      expect(result.corrections).toBeDefined();
+    }
+  });
+});
+
+// ── Mode with selective corrections ─────────────────────────────
+describe("Mode with selective corrections", () => {
+  it("document mode with only sharpness enabled", async () => {
+    const res = await postTool({
+      mode: "document",
+      intensity: 80,
+      corrections: {
+        exposure: false,
+        contrast: false,
+        whiteBalance: false,
+        saturation: false,
+        sharpness: true,
+        denoise: false,
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+  });
+
+  it("landscape mode with denoise and exposure only", async () => {
+    const res = await postTool({
+      mode: "landscape",
+      intensity: 60,
+      corrections: {
+        exposure: true,
+        contrast: false,
+        whiteBalance: false,
+        saturation: false,
+        sharpness: false,
+        denoise: true,
+      },
+    });
+    expect(res.statusCode).toBe(200);
+  });
+});
+
+// ── Invalid image data ──────────────────────────────────────────
+describe("Invalid image data", () => {
+  it("returns 400 for corrupt image data on main endpoint", async () => {
+    const res = await postTool(
+      { mode: "auto" },
+      Buffer.from("not an image file at all"),
+      "garbage.png",
+      "image/png",
+    );
+    expect(res.statusCode).toBe(400);
+  });
+});
+
+// ── Large file with specific modes ──────────────────────────────
+describe("Large file with modes", () => {
+  it("enhances large image in low-light mode", async () => {
+    const large = readFileSync(join(FIXTURES, "content", "stress-large.jpg"));
+    const res = await postTool(
+      { mode: "low-light", intensity: 70 },
+      large,
+      "stress-large.jpg",
+      "image/jpeg",
+    );
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.processedSize).toBeGreaterThan(0);
+  });
+
+  it("enhances large image in document mode", async () => {
+    const large = readFileSync(join(FIXTURES, "content", "stress-large.jpg"));
+    const res = await postTool(
+      { mode: "document", intensity: 90 },
+      large,
+      "stress-large.jpg",
+      "image/jpeg",
+    );
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.processedSize).toBeGreaterThan(0);
+  });
+});

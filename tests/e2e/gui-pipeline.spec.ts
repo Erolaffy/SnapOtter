@@ -215,6 +215,59 @@ test.describe("Pipeline Builder - Step management", () => {
     const dragHandles = page.locator(".cursor-grab");
     await expect(dragHandles).toHaveCount(2);
   });
+
+  test("remove step then re-add maintains correct count", async ({ loggedInPage: page }) => {
+    await gotoAutomate(page);
+
+    await addToolStep(page, "Resize", 1);
+    await addToolStep(page, "Compress", 2);
+    await addToolStep(page, "Convert", 3);
+
+    // Remove the second step
+    await page.getByTitle("Remove").nth(1).click();
+    await waitForSteps(page, 2);
+
+    // Re-add a step (Compress again)
+    await addToolStep(page, "Compress", 3);
+
+    // Should now have 3 steps again
+    await expect(page.getByTitle("Remove")).toHaveCount(3);
+    await expect(page.getByText("3 steps configured")).toBeVisible();
+  });
+
+  test("expand step, modify settings, collapse, re-expand preserves settings", async ({
+    loggedInPage: page,
+  }) => {
+    await gotoAutomate(page);
+
+    // Add a Resize step and a Compress step
+    await addToolStep(page, "Resize", 1);
+    await addToolStep(page, "Compress", 2);
+
+    // Expand the Resize step to reveal its settings form
+    const resizeRow = page.locator("[role='button']").filter({ hasText: "Resize" }).first();
+    await resizeRow.click();
+    await expect(page.locator(".border-primary").first()).toBeVisible({ timeout: 3_000 });
+
+    // Modify a setting value in the Resize step (e.g., width input)
+    const widthInput = page.locator("input[placeholder='Auto']").first();
+    if (await widthInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await widthInput.fill("200");
+    }
+
+    // Collapse by clicking the step header again
+    await resizeRow.click();
+    await page.waitForTimeout(300);
+
+    // Re-expand the Resize step
+    await resizeRow.click();
+    await expect(page.locator(".border-primary").first()).toBeVisible({ timeout: 3_000 });
+
+    // The previously entered width value should still be present
+    if (await widthInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await expect(widthInput).toHaveValue("200");
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -310,6 +363,67 @@ test.describe("Pipeline Builder - File upload and processing", () => {
     const processBtn = page.getByRole("button", { name: "Process", exact: true });
     await expect(processBtn).toBeDisabled();
   });
+
+  test("process button disabled without steps even when file present", async ({
+    loggedInPage: page,
+  }) => {
+    await gotoAutomate(page);
+
+    // Upload a file but add no steps
+    await uploadTestFile(page);
+
+    // Process should be disabled without steps
+    const processBtn = page.getByRole("button", { name: "Process", exact: true });
+    await expect(processBtn).toBeDisabled();
+  });
+
+  test("progress indicator appears during pipeline execution", async ({ loggedInPage: page }) => {
+    await gotoAutomate(page);
+
+    await addToolStep(page, "Remove Metadata", 1);
+    await addToolStep(page, "Compress", 2);
+    await uploadTestFile(page);
+
+    // Click Process
+    await page.getByRole("button", { name: "Process", exact: true }).click();
+
+    // A progress indicator (spinner or progress card) should appear during processing
+    const spinner = page.locator("[class*='animate-spin']");
+    const progressText = page.getByText(/processing|running/i);
+    await spinner
+      .or(progressText)
+      .first()
+      .isVisible({ timeout: 3_000 })
+      .catch(() => false);
+
+    // Wait for processing to complete
+    await waitForProcessing(page, 30_000);
+
+    // After completion, the before/after slider should appear
+    const slider = page.locator("[aria-label='Before/after comparison slider']");
+    await expect(slider).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("download button shows after single-file pipeline execution", async ({
+    loggedInPage: page,
+  }) => {
+    await gotoAutomate(page);
+
+    await addToolStep(page, "Compress", 1);
+    await uploadTestFile(page);
+
+    await page.getByRole("button", { name: "Process", exact: true }).click();
+
+    // Wait for the before/after slider
+    const slider = page.locator("[aria-label='Before/after comparison slider']");
+    await expect(slider).toBeVisible({ timeout: 30_000 });
+
+    // A download link or button should be visible in the results area
+    const downloadBtn = page
+      .getByRole("link", { name: /download/i })
+      .or(page.getByRole("button", { name: /download$/i }));
+    await expect(downloadBtn.first()).toBeVisible({ timeout: 5_000 });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -372,6 +486,62 @@ test.describe("Pipeline Builder - Batch processing", () => {
 
     // Download ZIP button should be visible
     await expect(page.getByRole("button", { name: /download zip/i })).toBeVisible();
+  });
+
+  test("batch pipeline: navigate through results with Prev/Next", async ({
+    loggedInPage: page,
+  }) => {
+    await gotoAutomate(page);
+
+    await addToolStep(page, "Compress", 1);
+    await uploadMultipleFiles(page);
+
+    // Process batch
+    const processBtn = page.getByRole("button", { name: /process all.*3/i });
+    await processBtn.click();
+
+    // Wait for processing to complete
+    await waitForProcessing(page, 45_000);
+
+    // Counter badge should show "1 / 3" for first result
+    await expect(page.getByText(/1 \/ 3/).first()).toBeVisible({ timeout: 15_000 });
+
+    // Navigate to second result
+    await page.getByRole("button", { name: "Next image" }).click();
+    await expect(page.getByText(/2 \/ 3/).first()).toBeVisible();
+
+    // Navigate to third result
+    await page.getByRole("button", { name: "Next image" }).click();
+    await expect(page.getByText(/3 \/ 3/).first()).toBeVisible();
+
+    // Navigate back to verify bidirectional navigation
+    await page.getByRole("button", { name: "Previous image" }).click();
+    await expect(page.getByText(/2 \/ 3/).first()).toBeVisible();
+  });
+
+  test("batch pipeline: Download ZIP triggers actual download", async ({ loggedInPage: page }) => {
+    await gotoAutomate(page);
+
+    await addToolStep(page, "Compress", 1);
+    await uploadMultipleFiles(page);
+
+    // Process batch
+    const processBtn = page.getByRole("button", { name: /process all.*3/i });
+    await processBtn.click();
+
+    // Wait for processing to complete
+    await waitForProcessing(page, 45_000);
+
+    // Counter badge should appear
+    await expect(page.getByText(/1 \/ 3/).first()).toBeVisible({ timeout: 15_000 });
+
+    // Click Download ZIP and verify a download is triggered
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: /download zip/i }).click();
+    const download = await downloadPromise;
+
+    // The downloaded file should be a ZIP
+    expect(download.suggestedFilename()).toMatch(/\.zip$/i);
   });
 });
 

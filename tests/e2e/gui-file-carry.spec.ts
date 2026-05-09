@@ -83,4 +83,60 @@ test.describe("Cross-tool file carrying", () => {
     // the processed state is reset (no stale download links).
     await expect(page.getByRole("link", { name: /download/i })).not.toBeVisible();
   });
+
+  test("upload on resize, click sidebar Tools link, navigate to convert, no stale state", async ({
+    loggedInPage: page,
+  }) => {
+    // Go to resize and upload a file
+    await page.goto("/resize");
+    await uploadTestImage(page);
+
+    // Confirm the file is loaded on resize
+    await expect(page.getByText(/test-image/i).first()).toBeVisible();
+
+    // Click the "Tools" sidebar link to go back to home
+    const sidebar = page.locator("aside");
+    await sidebar.getByText("Tools").click();
+    await page.waitForURL("/");
+
+    // Now navigate to a different tool via URL (simulating a fresh tool visit)
+    await page.goto("/convert");
+    await page.waitForLoadState("networkidle");
+
+    // No stale download links should be present from the previous tool
+    await expect(page.getByRole("link", { name: /download/i })).not.toBeVisible();
+  });
+
+  test("file carry works only via Quick Actions, not via sidebar navigation", async ({
+    loggedInPage: page,
+  }) => {
+    // Upload a file on the home page
+    await uploadTestImage(page);
+
+    // Quick Actions should be visible after upload
+    await expect(page.getByText("Quick Actions").first()).toBeVisible();
+
+    // Click the Resize quick action to carry the file
+    await page
+      .getByRole("button", { name: /resize/i })
+      .first()
+      .click();
+    await expect(page).toHaveURL("/resize");
+
+    // File should be carried from home via Quick Action
+    await expect(page.getByText("Upload from computer")).not.toBeVisible({ timeout: 3_000 });
+    await expect(page.getByText(/test-image/i).first()).toBeVisible();
+
+    // Now navigate away via sidebar to the home page
+    const sidebar = page.locator("aside");
+    await sidebar.getByText("Tools").click();
+    await page.waitForURL("/");
+
+    // Navigate to compress directly (not via Quick Action)
+    await page.goto("/compress");
+    await page.waitForLoadState("networkidle");
+
+    // No processed state should leak between tool pages
+    await expect(page.getByRole("link", { name: /download/i })).not.toBeVisible();
+  });
 });

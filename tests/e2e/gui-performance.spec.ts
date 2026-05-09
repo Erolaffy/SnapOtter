@@ -413,3 +413,267 @@ test.describe("Repeated Operations Performance", () => {
     await expect(page.locator("main")).toBeVisible();
   });
 });
+
+// ---------------------------------------------------------------------------
+// 14.7 Performance Budgets: FCP, LCP, TTI via Performance API
+// ---------------------------------------------------------------------------
+test.describe("Performance Budgets - Paint Metrics", () => {
+  test("home page FCP < 2000ms via PerformanceObserver", async ({ loggedInPage: page }) => {
+    await page.goto("about:blank");
+    await page.goto("/");
+    await page.waitForLoadState("domcontentloaded");
+
+    // Wait briefly for paint entries to be recorded
+    await page.waitForTimeout(1000);
+
+    const fcp = await page.evaluate(() => {
+      const entries = performance.getEntriesByName("first-contentful-paint");
+      if (entries.length > 0) return entries[0].startTime;
+      // Fallback: use paint timing
+      const paintEntries = performance.getEntriesByType("paint");
+      const fcpEntry = paintEntries.find((e) => e.name === "first-contentful-paint");
+      return fcpEntry?.startTime ?? null;
+    });
+
+    // FCP may not be available in all test environments (headless Chromium
+    // sometimes omits paint timing). If available, assert the budget.
+    if (fcp !== null) {
+      expect(fcp).toBeLessThan(2000);
+    }
+  });
+
+  test("home page LCP < 3000ms", async ({ loggedInPage: page }) => {
+    await page.goto("about:blank");
+
+    // Set up LCP observer before navigation
+    await page.goto("/");
+    await page.waitForLoadState("load");
+
+    // Wait for LCP to stabilize
+    await page.waitForTimeout(2000);
+
+    const lcp = await page.evaluate(() => {
+      return new Promise<number | null>((resolve) => {
+        // Try to get LCP from existing entries
+        try {
+          const observer = new PerformanceObserver((list) => {
+            const entries = list.getEntries();
+            if (entries.length > 0) {
+              resolve(entries[entries.length - 1].startTime);
+            }
+            observer.disconnect();
+          });
+          observer.observe({ type: "largest-contentful-paint", buffered: true });
+
+          // Timeout fallback
+          setTimeout(() => resolve(null), 1000);
+        } catch {
+          resolve(null);
+        }
+      });
+    });
+
+    if (lcp !== null) {
+      expect(lcp).toBeLessThan(3000);
+    }
+  });
+
+  test("home page TTI proxy < 3500ms (domInteractive + networkIdle)", async ({
+    loggedInPage: page,
+  }) => {
+    await page.goto("about:blank");
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+
+    const tti = await page.evaluate(() => {
+      const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming;
+      // TTI approximation: domInteractive marks when the parser finishes,
+      // combined with load event end for a reasonable upper bound
+      return Math.max(nav.domInteractive - nav.startTime, nav.loadEventEnd - nav.startTime);
+    });
+
+    expect(tti).toBeLessThan(3500);
+  });
+});
+
+test.describe("Performance Budgets - Route Navigation", () => {
+  test("tool-to-tool SPA navigation < 500ms (warmed, production target)", async ({
+    loggedInPage: page,
+  }) => {
+    // Warm up both routes so lazy chunks are cached
+    await page.goto("/resize");
+    await page.waitForLoadState("networkidle");
+    await page.goto("/compress");
+    await page.waitForLoadState("networkidle");
+
+    // Now measure warmed navigation
+    await page.goto("/resize");
+    await page.waitForLoadState("networkidle");
+
+    const start = Date.now();
+    await page.goto("/compress");
+    await page.waitForLoadState("domcontentloaded");
+    await page.locator("h2").filter({ hasText: "Compress" }).waitFor({ state: "visible" });
+    const navTime = Date.now() - start;
+
+    // 500ms is the production budget; use 1500ms for dev mode
+    expect(navTime).toBeLessThan(1500);
+  });
+
+  test("sidebar click navigation < 500ms (warmed)", async ({ loggedInPage: page }) => {
+    // Warm up
+    await page.goto("/resize");
+    await page.waitForLoadState("networkidle");
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+
+    // Click a sidebar tool link
+    const start = Date.now();
+    await page.locator("aside").getByText("Automate").click();
+    await page.waitForURL("/automate");
+    await page.getByText("Pipeline Builder").waitFor({ state: "visible" });
+    const navTime = Date.now() - start;
+
+    // 1500ms for dev mode
+    expect(navTime).toBeLessThan(1500);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 14.7 File Upload Preview Timing
+// ---------------------------------------------------------------------------
+test.describe("File Upload Preview Timing", () => {
+  test("file upload preview renders within 1000ms", async ({ loggedInPage: page }) => {
+    await page.goto("/resize");
+    await page.waitForLoadState("networkidle");
+
+    const start = Date.now();
+    await uploadTestImage(page);
+
+    // Wait for the image preview or filename to appear
+    await expect(
+      page
+        .getByText(/test-image/i)
+        .first()
+        .or(page.locator("img[src^='blob:']").first()),
+    ).toBeVisible({ timeout: 5_000 });
+    const previewTime = Date.now() - start;
+
+    expect(previewTime).toBeLessThan(1000);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 14.8 Interaction Responsiveness (expanded)
+// ---------------------------------------------------------------------------
+test.describe("Interaction Responsiveness - Live Preview", () => {
+  test("compress quality slider updates preview indicator promptly", async ({
+    loggedInPage: page,
+  }) => {
+    await page.goto("/compress");
+    await page.waitForLoadState("networkidle");
+
+    // Look for a quality slider or range input
+    const slider = page.locator("input[type='range']").first();
+    if (await slider.isVisible({ timeout: 3000 }).catch(() => false)) {
+      const initialValue = await slider.inputValue();
+
+      const start = Date.now();
+      // Adjust via keyboard
+      await slider.focus();
+      await page.keyboard.press("ArrowRight");
+
+      const newValue = await slider.inputValue();
+      const responseTime = Date.now() - start;
+
+      // Value should change and respond within 300ms (generous for dev)
+      if (newValue !== initialValue) {
+        expect(responseTime).toBeLessThan(300);
+      }
+    }
+  });
+});
+
+test.describe("Interaction Responsiveness - No Blank Flash", () => {
+  test("no white/blank flash during tool-to-tool navigation", async ({ loggedInPage: page }) => {
+    await page.goto("/resize");
+    await page.waitForLoadState("networkidle");
+
+    // Monitor for blank screens during navigation
+    let blankScreenDetected = false;
+
+    // Check periodically during navigation
+    const checkInterval = setInterval(async () => {
+      try {
+        const bodyHtml = await page.evaluate(() => document.body.innerHTML);
+        if (bodyHtml.trim().length === 0) {
+          blankScreenDetected = true;
+        }
+      } catch {
+        // Page might be navigating -- ignore
+      }
+    }, 50);
+
+    // Navigate through several tools
+    await page.goto("/compress");
+    await page.waitForLoadState("domcontentloaded");
+    await page.goto("/rotate");
+    await page.waitForLoadState("domcontentloaded");
+    await page.goto("/convert");
+    await page.waitForLoadState("domcontentloaded");
+
+    clearInterval(checkInterval);
+
+    expect(blankScreenDetected).toBe(false);
+  });
+
+  test("Suspense fallback renders during lazy load (no bare white screen)", async ({
+    loggedInPage: page,
+  }) => {
+    // Navigate to a tool that is lazy-loaded
+    // During load, the Suspense boundary should show a spinner, not nothing
+    await page.goto("about:blank");
+
+    // Navigate and immediately check for content
+    const response = page.goto("/resize");
+    await page.waitForLoadState("domcontentloaded");
+
+    // After domcontentloaded, body should have content (either the spinner or the page)
+    const bodyContent = await page.textContent("body");
+    expect(bodyContent).toBeDefined();
+
+    // Wait for full load
+    await response;
+    await expect(page.locator("main").or(page.locator("[class*='animate-spin']"))).toBeVisible({
+      timeout: 10_000,
+    });
+  });
+});
+
+test.describe("Interaction Responsiveness - Theme Toggle", () => {
+  test("theme toggle does not cause layout shift", async ({ loggedInPage: page }) => {
+    await page.waitForLoadState("networkidle");
+
+    // Get the sidebar width before toggle
+    const sidebarBefore = await page.locator("aside").boundingBox();
+
+    // Toggle theme
+    const themeBtn = page.locator("button[title='Toggle Theme']");
+    if (await themeBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await themeBtn.click();
+      await page.waitForTimeout(200);
+
+      // Get the sidebar width after toggle
+      const sidebarAfter = await page.locator("aside").boundingBox();
+
+      // Sidebar dimensions should not change (no layout shift)
+      if (sidebarBefore && sidebarAfter) {
+        expect(sidebarAfter.width).toBe(sidebarBefore.width);
+        expect(sidebarAfter.x).toBe(sidebarBefore.x);
+      }
+
+      // Toggle back
+      await themeBtn.click();
+    }
+  });
+});

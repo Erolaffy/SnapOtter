@@ -1,4 +1,4 @@
-import { expect, openSettings, test } from "./helpers";
+import { expect, openSettings, test, uploadTestImage } from "./helpers";
 
 // ---------------------------------------------------------------------------
 // Viewport definitions
@@ -94,6 +94,50 @@ test.describe("Responsive - Desktop (1280x720)", () => {
       expect(box.y + box.height).toBeLessThanOrEqual(DESKTOP.height + 1);
     }
   });
+
+  test("no horizontal overflow on automate page", async ({ loggedInPage: page }) => {
+    await page.goto("/automate");
+
+    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+    const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+  });
+
+  test("tool page after upload has no overflow", async ({ loggedInPage: page }) => {
+    await page.goto("/resize");
+    await uploadTestImage(page);
+
+    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+    const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+  });
+
+  test("all sidebar items are within viewport", async ({ loggedInPage: page }) => {
+    const sidebar = page.locator("aside");
+    const box = await sidebar.boundingBox();
+    if (box) {
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(DESKTOP.width + 1);
+    }
+  });
+
+  test("footer buttons are within viewport", async ({ loggedInPage: page }) => {
+    const themeBtn = page.locator("button[title='Toggle Theme']");
+    await expect(themeBtn).toBeVisible();
+    const box = await themeBtn.boundingBox();
+    if (box) {
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(DESKTOP.width + 1);
+    }
+  });
+
+  test("privacy page has no horizontal overflow", async ({ loggedInPage: page }) => {
+    await page.goto("/privacy");
+
+    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+    const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -172,6 +216,50 @@ test.describe("Responsive - Tablet (768x1024)", () => {
     const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
     const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
     expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+  });
+
+  test("no horizontal overflow on automate page", async ({ loggedInPage: page }) => {
+    await page.goto("/automate");
+
+    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+    const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+  });
+
+  test("tool page after upload has no overflow", async ({ loggedInPage: page }) => {
+    await page.goto("/resize");
+    await uploadTestImage(page);
+
+    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+    const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+  });
+
+  test("privacy page has no overflow at tablet width", async ({ loggedInPage: page }) => {
+    await page.goto("/privacy");
+
+    await expect(page.getByRole("heading", { name: "Privacy Policy" })).toBeVisible();
+
+    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+    const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+  });
+
+  test("all text on home page is readable (font-size >= 12px)", async ({ loggedInPage: page }) => {
+    const smallText = await page.evaluate(() => {
+      const elements = document.querySelectorAll("p, span, a, button, label, h1, h2, h3, h4, h5");
+      let count = 0;
+      for (const el of elements) {
+        const style = window.getComputedStyle(el);
+        const fontSize = Number.parseFloat(style.fontSize);
+        if (fontSize < 12 && el.textContent && el.textContent.trim().length > 0) {
+          count++;
+        }
+      }
+      return count;
+    });
+    // Allow a small number of decorative/badge elements with smaller text
+    expect(smallText).toBeLessThanOrEqual(5);
   });
 });
 
@@ -396,5 +484,69 @@ test.describe("Responsive - Mobile (375x667)", () => {
     const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
     const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
     expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+  });
+
+  test("tool page after upload has no overflow on mobile", async ({ loggedInPage: page }) => {
+    await page.goto("/resize");
+    await uploadTestImage(page);
+
+    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+    const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+  });
+
+  test("all text on mobile home page is readable (font-size >= 12px)", async ({
+    loggedInPage: page,
+  }) => {
+    const smallText = await page.evaluate(() => {
+      const elements = document.querySelectorAll("p, span, a, button, label, h1, h2, h3, h4, h5");
+      let count = 0;
+      for (const el of elements) {
+        const style = window.getComputedStyle(el);
+        const fontSize = Number.parseFloat(style.fontSize);
+        if (fontSize < 12 && el.textContent && el.textContent.trim().length > 0) {
+          count++;
+        }
+      }
+      return count;
+    });
+    // Allow a small number of decorative/badge elements with smaller text
+    expect(smallText).toBeLessThanOrEqual(5);
+  });
+
+  test("bottom nav items are all within viewport bounds", async ({ loggedInPage: page }) => {
+    const bottomNav = page.locator("nav.fixed");
+    const box = await bottomNav.boundingBox();
+    if (box) {
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(MOBILE.width + 1);
+      expect(box.y + box.height).toBeLessThanOrEqual(MOBILE.height + 1);
+    }
+  });
+
+  test("SnapOtter branding text is readable on mobile", async ({ loggedInPage: page }) => {
+    const branding = page.getByText("SnapOtter").first();
+    await expect(branding).toBeVisible();
+
+    const fontSize = await branding.evaluate((el) =>
+      Number.parseFloat(window.getComputedStyle(el).fontSize),
+    );
+    // Branding text should be at least 14px to be readable
+    expect(fontSize).toBeGreaterThanOrEqual(14);
+  });
+
+  test("no horizontal overflow on login page", async ({ browser }) => {
+    const context = await browser.newContext({
+      storageState: { cookies: [], origins: [] },
+      viewport: MOBILE,
+    });
+    const page = await context.newPage();
+    await page.goto("/login");
+
+    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+    const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+
+    await context.close();
   });
 });

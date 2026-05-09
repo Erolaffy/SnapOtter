@@ -1541,4 +1541,384 @@ describe("Collage", () => {
     expect(result.downloadUrl).toBeDefined();
     expect(result.processedSize).toBeGreaterThan(0);
   });
+
+  // ── Remaining template coverage ─────────────────────────────────────
+
+  it("creates a 4-image left-large collage (4-left-large)", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "f1", filename: "a.png", contentType: "image/png", content: PNG },
+      { name: "f2", filename: "b.jpg", contentType: "image/jpeg", content: JPG },
+      { name: "f3", filename: "c.png", contentType: "image/png", content: PNG },
+      { name: "f4", filename: "d.jpg", contentType: "image/jpeg", content: JPG },
+      {
+        name: "settings",
+        content: JSON.stringify({ templateId: "4-left-large" }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/collage",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+    expect(result.processedSize).toBeGreaterThan(0);
+  });
+
+  it("creates a 4-image top-large collage (4-top-large)", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "f1", filename: "a.png", contentType: "image/png", content: PNG },
+      { name: "f2", filename: "b.jpg", contentType: "image/jpeg", content: JPG },
+      { name: "f3", filename: "c.png", contentType: "image/png", content: PNG },
+      { name: "f4", filename: "d.jpg", contentType: "image/jpeg", content: JPG },
+      {
+        name: "settings",
+        content: JSON.stringify({ templateId: "4-top-large" }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/collage",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+    expect(result.processedSize).toBeGreaterThan(0);
+  });
+
+  it("creates a 4-image bottom-large collage (4-bottom-large)", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "f1", filename: "a.png", contentType: "image/png", content: PNG },
+      { name: "f2", filename: "b.jpg", contentType: "image/jpeg", content: JPG },
+      { name: "f3", filename: "c.png", contentType: "image/png", content: PNG },
+      { name: "f4", filename: "d.jpg", contentType: "image/jpeg", content: JPG },
+      {
+        name: "settings",
+        content: JSON.stringify({ templateId: "4-bottom-large" }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/collage",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+    expect(result.processedSize).toBeGreaterThan(0);
+  });
+
+  it("creates a 5-image top3-bottom2 collage", async () => {
+    const images = Array.from({ length: 5 }, (_, i) => ({
+      name: `f${i + 1}`,
+      filename: `${i}.${i % 2 === 0 ? "png" : "jpg"}`,
+      contentType: i % 2 === 0 ? "image/png" : "image/jpeg",
+      content: i % 2 === 0 ? PNG : JPG,
+    }));
+
+    const { body, contentType } = createMultipartPayload([
+      ...images,
+      {
+        name: "settings",
+        content: JSON.stringify({ templateId: "5-top3-bottom2" }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/collage",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+    expect(result.processedSize).toBeGreaterThan(0);
+  });
+
+  it("creates a 5-image left-large collage (5-left-large)", async () => {
+    const images = Array.from({ length: 5 }, (_, i) => ({
+      name: `f${i + 1}`,
+      filename: `${i}.png`,
+      contentType: "image/png",
+      content: PNG,
+    }));
+
+    const { body, contentType } = createMultipartPayload([
+      ...images,
+      {
+        name: "settings",
+        content: JSON.stringify({ templateId: "5-left-large" }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/collage",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+    expect(result.processedSize).toBeGreaterThan(0);
+  });
+
+  it("creates a 5-image center-large collage (5-center-large)", async () => {
+    const images = Array.from({ length: 5 }, (_, i) => ({
+      name: `f${i + 1}`,
+      filename: `${i}.jpg`,
+      contentType: "image/jpeg",
+      content: JPG,
+    }));
+
+    const { body, contentType } = createMultipartPayload([
+      ...images,
+      {
+        name: "settings",
+        content: JSON.stringify({ templateId: "5-center-large" }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/collage",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+    expect(result.processedSize).toBeGreaterThan(0);
+  });
+
+  it("creates a 6-image grid-2x3 collage (6-grid-2x3)", async () => {
+    const images = Array.from({ length: 6 }, (_, i) => ({
+      name: `f${i + 1}`,
+      filename: `${i}.png`,
+      contentType: "image/png",
+      content: PNG,
+    }));
+
+    const { body, contentType } = createMultipartPayload([
+      ...images,
+      {
+        name: "settings",
+        content: JSON.stringify({ templateId: "6-grid-2x3" }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/collage",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+    expect(result.processedSize).toBeGreaterThan(0);
+  });
+
+  it("creates a 6-image top-large collage (6-top-large)", async () => {
+    const images = Array.from({ length: 6 }, (_, i) => ({
+      name: `f${i + 1}`,
+      filename: `${i}.jpg`,
+      contentType: "image/jpeg",
+      content: JPG,
+    }));
+
+    const { body, contentType } = createMultipartPayload([
+      ...images,
+      {
+        name: "settings",
+        content: JSON.stringify({ templateId: "6-top-large" }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/collage",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+    expect(result.processedSize).toBeGreaterThan(0);
+  });
+
+  it("creates a 7-image mosaic collage (7-mosaic)", async () => {
+    const images = Array.from({ length: 7 }, (_, i) => ({
+      name: `f${i + 1}`,
+      filename: `${i}.${i % 2 === 0 ? "png" : "jpg"}`,
+      contentType: i % 2 === 0 ? "image/png" : "image/jpeg",
+      content: i % 2 === 0 ? PNG : JPG,
+    }));
+
+    const { body, contentType } = createMultipartPayload([
+      ...images,
+      {
+        name: "settings",
+        content: JSON.stringify({ templateId: "7-mosaic" }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/collage",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+    expect(result.processedSize).toBeGreaterThan(0);
+  });
+
+  it("creates an 8-image mosaic collage (8-mosaic)", async () => {
+    const images = Array.from({ length: 8 }, (_, i) => ({
+      name: `f${i + 1}`,
+      filename: `${i}.${i % 2 === 0 ? "png" : "jpg"}`,
+      contentType: i % 2 === 0 ? "image/png" : "image/jpeg",
+      content: i % 2 === 0 ? PNG : JPG,
+    }));
+
+    const { body, contentType } = createMultipartPayload([
+      ...images,
+      {
+        name: "settings",
+        content: JSON.stringify({ templateId: "8-mosaic" }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/collage",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+    expect(result.processedSize).toBeGreaterThan(0);
+  });
+
+  // ── JXL output format ─────────────────────────────────────────────
+
+  it("accepts jxl output format (succeeds if Sharp supports JXL)", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "f1", filename: "a.png", contentType: "image/png", content: PNG },
+      { name: "f2", filename: "b.jpg", contentType: "image/jpeg", content: JPG },
+      {
+        name: "settings",
+        content: JSON.stringify({
+          templateId: "2-h-equal",
+          outputFormat: "jxl",
+          quality: 75,
+        }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/collage",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    // JXL support depends on the Sharp build; either succeeds or fails gracefully
+    expect([200, 422]).toContain(res.statusCode);
+    if (res.statusCode === 200) {
+      const result = JSON.parse(res.body);
+      expect(result.processedSize).toBeGreaterThan(0);
+      expect(result.downloadUrl).toContain(".jxl");
+    }
+  });
+
+  // ── Extra images beyond template capacity are truncated ───────────
+
+  it("truncates extra images beyond template capacity", async () => {
+    // 4-grid only takes 4 images; sending 6 should still succeed
+    const images = Array.from({ length: 6 }, (_, i) => ({
+      name: `f${i + 1}`,
+      filename: `${i}.png`,
+      contentType: "image/png",
+      content: PNG,
+    }));
+
+    const { body, contentType } = createMultipartPayload([
+      ...images,
+      {
+        name: "settings",
+        content: JSON.stringify({ templateId: "4-grid" }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/collage",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+    expect(result.processedSize).toBeGreaterThan(0);
+  });
 });

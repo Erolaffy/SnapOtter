@@ -2,7 +2,7 @@
 //
 // Proves the invariant: PostHog and Sentry are NEVER called when
 // analytics is disabled or the user has not granted consent.
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockPosthogInit = vi.fn(() => ({
   capture: mockCapture,
@@ -197,7 +197,7 @@ describe("Analytics No-Leak Invariant", () => {
       await initAnalytics(enabledConfig);
       const sentryCall = mockSentryInit.mock.calls.find((call: unknown[]) => call[0]?.beforeSend);
       expect(sentryCall).toBeDefined();
-      const beforeSend = sentryCall![0].beforeSend;
+      const beforeSend = sentryCall?.[0].beforeSend;
 
       setAnalyticsConsent(false);
       const result = beforeSend({ exception: { values: [] } });
@@ -211,7 +211,7 @@ describe("Analytics No-Leak Invariant", () => {
         (call: unknown[]) => call[0]?.beforeBreadcrumb,
       );
       expect(sentryCall).toBeDefined();
-      const beforeBreadcrumb = sentryCall![0].beforeBreadcrumb;
+      const beforeBreadcrumb = sentryCall?.[0].beforeBreadcrumb;
 
       setAnalyticsConsent(false);
       const result = beforeBreadcrumb({ category: "console", message: "test" });
@@ -285,7 +285,7 @@ describe("Analytics No-Leak Invariant", () => {
       setAnalyticsConsent(true);
       await initAnalytics(enabledConfig);
       const sentryCall = mockSentryInit.mock.calls.find((call: unknown[]) => call[0]?.beforeSend);
-      const beforeSend = sentryCall![0].beforeSend;
+      const beforeSend = sentryCall?.[0].beforeSend;
 
       const event = {
         user: { email: "user@example.com", username: "admin", id: "123" },
@@ -301,7 +301,7 @@ describe("Analytics No-Leak Invariant", () => {
       setAnalyticsConsent(true);
       await initAnalytics(enabledConfig);
       const sentryCall = mockSentryInit.mock.calls.find((call: unknown[]) => call[0]?.beforeSend);
-      const beforeSend = sentryCall![0].beforeSend;
+      const beforeSend = sentryCall?.[0].beforeSend;
 
       const event = {
         exception: {
@@ -327,7 +327,7 @@ describe("Analytics No-Leak Invariant", () => {
       const sentryCall = mockSentryInit.mock.calls.find(
         (call: unknown[]) => call[0]?.beforeBreadcrumb,
       );
-      const beforeBreadcrumb = sentryCall![0].beforeBreadcrumb;
+      const beforeBreadcrumb = sentryCall?.[0].beforeBreadcrumb;
 
       expect(beforeBreadcrumb({ category: "ui.click" })).toBeNull();
     });
@@ -338,7 +338,7 @@ describe("Analytics No-Leak Invariant", () => {
       const sentryCall = mockSentryInit.mock.calls.find(
         (call: unknown[]) => call[0]?.beforeBreadcrumb,
       );
-      const beforeBreadcrumb = sentryCall![0].beforeBreadcrumb;
+      const beforeBreadcrumb = sentryCall?.[0].beforeBreadcrumb;
 
       expect(
         beforeBreadcrumb({

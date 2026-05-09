@@ -1061,6 +1061,52 @@ describe("svg-to-raster", () => {
     expect(json.processedSize).toBeGreaterThan(0);
   });
 
+  // ── JXL output format ──────────────────────────────────────────────
+
+  it("converts to jxl format (if Sharp supports JXL)", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.svg", contentType: "image/svg+xml", content: SVG },
+      { name: "settings", content: JSON.stringify({ outputFormat: "jxl", quality: 75 }) },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/svg-to-raster",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    // JXL support depends on the Sharp build
+    expect([200, 422]).toContain(res.statusCode);
+    if (res.statusCode === 200) {
+      const json = JSON.parse(res.body);
+      expect(json.downloadUrl).toBeDefined();
+      expect(json.processedSize).toBeGreaterThan(0);
+    }
+  });
+
+  // ── SVG with no viewBox or dimensions ─────────────────────────────
+
+  it("handles a minimal SVG with no viewBox attribute", async () => {
+    const minimalSvg = Buffer.from(
+      '<svg xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="40" fill="red"/></svg>',
+    );
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "minimal.svg", contentType: "image/svg+xml", content: minimalSvg },
+      { name: "settings", content: JSON.stringify({ outputFormat: "png", width: 200 }) },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/svg-to-raster",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    // May succeed or fail depending on Sharp's SVG handling
+    expect([200, 422]).toContain(res.statusCode);
+  });
+
   // ── Branch coverage: heif + background color combination ───────────
 
   it("converts to heif format with background color applied", { timeout: 120_000 }, async () => {

@@ -810,6 +810,155 @@ describe("image-to-pdf", () => {
     expect(json.processedSize).toBeGreaterThan(0);
   });
 
+  // ── TIFF input ────────────────────────────────────────────────────
+
+  it("converts TIFF image to PDF", async () => {
+    const TIFF = readFileSync(join(FIXTURES, "formats", "sample.tiff"));
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.tiff", contentType: "image/tiff", content: TIFF },
+      { name: "settings", content: JSON.stringify({}) },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/image-to-pdf",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const json = JSON.parse(res.body);
+    expect(json.pages).toBe(1);
+    expect(json.processedSize).toBeGreaterThan(0);
+  });
+
+  // ── Mixed format multi-page PDF ─────────────────────────────────
+
+  it("creates multi-page PDF from mixed formats (PNG + JPG + WebP + TIFF)", async () => {
+    const WEBP = readFileSync(join(FIXTURES, "test-50x50.webp"));
+    const TIFF = readFileSync(join(FIXTURES, "formats", "sample.tiff"));
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "p1.png", contentType: "image/png", content: PNG },
+      { name: "file", filename: "p2.jpg", contentType: "image/jpeg", content: JPG },
+      { name: "file", filename: "p3.webp", contentType: "image/webp", content: WEBP },
+      { name: "file", filename: "p4.tiff", contentType: "image/tiff", content: TIFF },
+      { name: "settings", content: JSON.stringify({}) },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/image-to-pdf",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const json = JSON.parse(res.body);
+    expect(json.pages).toBe(4);
+  });
+
+  // ── PDF output size is positive ─────────────────────────────────
+
+  it("PDF output is larger than zero bytes", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.png", contentType: "image/png", content: PNG },
+      { name: "settings", content: JSON.stringify({}) },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/image-to-pdf",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const json = JSON.parse(res.body);
+    expect(json.processedSize).toBeGreaterThan(0);
+    expect(json.originalSize).toBeGreaterThan(0);
+    expect(json.downloadUrl).toContain("/api/v1/download/");
+  });
+
+  // ── Negative margin rejected ────────────────────────────────────
+
+  it("rejects negative margin value", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.png", contentType: "image/png", content: PNG },
+      { name: "settings", content: JSON.stringify({ margin: -1 }) },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/image-to-pdf",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  // ── Maximum margin boundary ─────────────────────────────────────
+
+  it("accepts maximum margin (500)", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.png", contentType: "image/png", content: PNG },
+      { name: "settings", content: JSON.stringify({ margin: 500 }) },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/image-to-pdf",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const json = JSON.parse(res.body);
+    expect(json.pages).toBe(1);
+  });
+
+  // ── Margin exceeding max rejected ───────────────────────────────
+
+  it("rejects margin exceeding max (>500)", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.png", contentType: "image/png", content: PNG },
+      { name: "settings", content: JSON.stringify({ margin: 501 }) },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/image-to-pdf",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  // ── Target size with KB unit at boundary ────────────────────────
+
+  it("accepts target size at minimum boundary (50KB)", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.png", contentType: "image/png", content: PNG },
+      {
+        name: "settings",
+        content: JSON.stringify({ targetSize: { value: 50, unit: "KB" } }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/image-to-pdf",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": contentType },
+      body,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const json = JSON.parse(res.body);
+    expect(json.compression).toBeDefined();
+    expect(json.compression.targetRequested).toBe(50 * 1024);
+  });
+
   // ── Rejects invalid orientation ──────────────────────────────────
 
   it("rejects invalid orientation value", async () => {

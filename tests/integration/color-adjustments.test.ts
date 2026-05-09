@@ -581,3 +581,148 @@ describe("SVG input", () => {
     expect(result.downloadUrl).toBeDefined();
   });
 });
+
+// ── TIFF input ─────────────────────────────────────────────────
+describe("TIFF input", () => {
+  it("processes TIFF input with saturation adjustment", async () => {
+    const TIFF = readFileSync(join(FIXTURES, "formats", "sample.tiff"));
+    const res = await postTool(
+      "adjust-colors",
+      { saturation: 40 },
+      TIFF,
+      "test.tiff",
+      "image/tiff",
+    );
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+  });
+});
+
+// ── Exposure out of range ──────────────────────────────────────
+describe("Exposure validation", () => {
+  it("rejects exposure out of range (>100)", async () => {
+    const res = await postTool("adjust-colors", { exposure: 101 });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("rejects exposure out of range (<-100)", async () => {
+    const res = await postTool("adjust-colors", { exposure: -101 });
+    expect(res.statusCode).toBe(400);
+  });
+});
+
+// ── Channel value validation ───────────────────────────────────
+describe("Channel value validation", () => {
+  it("rejects channel value exceeding max (>200)", async () => {
+    const res = await postTool("adjust-colors", { red: 201 });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("rejects green channel exceeding max", async () => {
+    const res = await postTool("adjust-colors", { green: 201 });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("rejects blue channel exceeding max", async () => {
+    const res = await postTool("adjust-colors", { blue: 201 });
+    expect(res.statusCode).toBe(400);
+  });
+});
+
+// ── Contrast out of range ──────────────────────────────────────
+describe("Contrast validation", () => {
+  it("rejects contrast out of range (>100)", async () => {
+    const res = await postTool("adjust-colors", { contrast: 101 });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("rejects contrast out of range (<-100)", async () => {
+    const res = await postTool("adjust-colors", { contrast: -101 });
+    expect(res.statusCode).toBe(400);
+  });
+});
+
+// ── Saturation out of range ────────────────────────────────────
+describe("Saturation validation", () => {
+  it("rejects saturation out of range (>100)", async () => {
+    const res = await postTool("adjust-colors", { saturation: 101 });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("rejects saturation out of range (<-100)", async () => {
+    const res = await postTool("adjust-colors", { saturation: -101 });
+    expect(res.statusCode).toBe(400);
+  });
+});
+
+// ── Combined color adjustments with format verification ────────
+describe("Output format verification", () => {
+  it("preserves JPEG format with adjustments", async () => {
+    const res = await postTool(
+      "adjust-colors",
+      { brightness: 20, contrast: 10, saturation: -15 },
+      JPG,
+      "test.jpg",
+      "image/jpeg",
+    );
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    const dlRes = await app.inject({
+      method: "GET",
+      url: result.downloadUrl,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const meta = await sharp(dlRes.rawPayload).metadata();
+    expect(meta.format).toBe("jpeg");
+    expect(meta.width).toBe(100);
+    expect(meta.height).toBe(100);
+  });
+
+  it("preserves WebP format with adjustments", async () => {
+    const res = await postTool(
+      "adjust-colors",
+      { hue: 60, temperature: 30 },
+      WEBP,
+      "test.webp",
+      "image/webp",
+    );
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    const dlRes = await app.inject({
+      method: "GET",
+      url: result.downloadUrl,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    const meta = await sharp(dlRes.rawPayload).metadata();
+    expect(meta.format).toBe("webp");
+    expect(meta.width).toBe(50);
+    expect(meta.height).toBe(50);
+  });
+});
+
+// ── Effect combined with adjustments ───────────────────────────
+describe("Effect combined with adjustments", () => {
+  it("applies grayscale effect with brightness and contrast", async () => {
+    const res = await postTool("adjust-colors", {
+      effect: "grayscale",
+      brightness: 15,
+      contrast: 20,
+    });
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+  });
+
+  it("applies invert effect with channel adjustments", async () => {
+    const res = await postTool("adjust-colors", {
+      effect: "invert",
+      red: 120,
+      green: 80,
+      blue: 100,
+    });
+    expect(res.statusCode).toBe(200);
+    const result = JSON.parse(res.body);
+    expect(result.downloadUrl).toBeDefined();
+  });
+});

@@ -1,9 +1,3 @@
-/**
- * Playwright E2E test for all GPU-dependent tools on Windows/amd64.
- * Uses the API directly (multipart upload) with browser auth context.
- */
-import { chromium } from "playwright";
-
 const BASE = "http://localhost:1349";
 const USERNAME = "admin";
 const PASSWORD = "qFIJS2KcQ0NuUfZ0";
@@ -13,7 +7,7 @@ const results = [];
 
 function log(tool, status, detail = "") {
   const icon = status === "PASS" ? "\u2713" : status === "FAIL" ? "\u2717" : "!";
-  console.log(`${icon} ${tool}: ${status}${detail ? " - " + detail : ""}`);
+  console.log(`${icon} ${tool}: ${status}${detail ? ` - ${detail}` : ""}`);
   results.push({ tool, status, detail });
 }
 
@@ -29,7 +23,7 @@ async function main() {
   const { token } = await loginRes.json();
   console.log("Logged in.\n");
 
-  const { readFileSync } = await import("fs");
+  const { readFileSync } = await import("node:fs");
   const imageBuffer = readFileSync(TEST_IMAGE);
   const imageBlob = new Blob([imageBuffer], { type: "image/webp" });
 

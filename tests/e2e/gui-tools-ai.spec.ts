@@ -958,4 +958,129 @@ test.describe("GUI AI Tools", () => {
       ).toBeVisible({ timeout: 10_000 });
     });
   });
+
+  // ========================================================================
+  // CONTENT-AWARE RESIZE
+  // ========================================================================
+  test.describe("Content-Aware Resize", () => {
+    test("renders tool page with dropzone", async ({ loggedInPage: page }) => {
+      await page.goto("/content-aware-resize");
+      await expect(page.getByText("Content-Aware").first()).toBeVisible();
+      await expect(page.getByText("Upload from computer")).toBeVisible();
+    });
+
+    test("shows width and height inputs after upload", async ({ loggedInPage: page }) => {
+      await page.goto("/content-aware-resize");
+      await uploadTestImage(page);
+
+      await expect(page.locator("#car-width")).toBeVisible();
+      await expect(page.locator("#car-height")).toBeVisible();
+    });
+
+    test("shows resize to square checkbox", async ({ loggedInPage: page }) => {
+      await page.goto("/content-aware-resize");
+      await uploadTestImage(page);
+
+      await expect(page.getByText("Resize to square")).toBeVisible();
+    });
+
+    test("square mode disables width/height inputs", async ({ loggedInPage: page }) => {
+      await page.goto("/content-aware-resize");
+      await uploadTestImage(page);
+
+      // Check Resize to square
+      await page
+        .locator("label")
+        .filter({ hasText: "Resize to square" })
+        .locator("input[type='checkbox']")
+        .check();
+
+      await expect(page.locator("#car-width")).toBeDisabled();
+      await expect(page.locator("#car-height")).toBeDisabled();
+    });
+
+    test("shows protect faces checkbox", async ({ loggedInPage: page }) => {
+      await page.goto("/content-aware-resize");
+      await uploadTestImage(page);
+
+      await expect(page.getByText("Protect faces")).toBeVisible();
+    });
+
+    test("shows smoothing slider", async ({ loggedInPage: page }) => {
+      await page.goto("/content-aware-resize");
+      await uploadTestImage(page);
+
+      await expect(page.locator("#car-blur-radius")).toBeVisible();
+      await expect(page.getByText("Smoothing")).toBeVisible();
+    });
+
+    test("shows edge sensitivity slider", async ({ loggedInPage: page }) => {
+      await page.goto("/content-aware-resize");
+      await uploadTestImage(page);
+
+      await expect(page.locator("#car-sobel-threshold")).toBeVisible();
+      await expect(page.getByText("Edge sensitivity")).toBeVisible();
+    });
+
+    test("submit disabled without dimensions or square mode", async ({ loggedInPage: page }) => {
+      await page.goto("/content-aware-resize");
+      await uploadTestImage(page);
+
+      const submitBtn = page.getByTestId("content-aware-resize-submit");
+      await expect(submitBtn).toBeDisabled();
+    });
+
+    test("submit enabled with width set", async ({ loggedInPage: page }) => {
+      await page.goto("/content-aware-resize");
+      await uploadTestImage(page);
+
+      await page.locator("#car-width").fill("80");
+      await expect(page.getByTestId("content-aware-resize-submit")).toBeEnabled();
+    });
+
+    test("submit enabled with square mode", async ({ loggedInPage: page }) => {
+      await page.goto("/content-aware-resize");
+      await uploadTestImage(page);
+
+      await page
+        .locator("label")
+        .filter({ hasText: "Resize to square" })
+        .locator("input[type='checkbox']")
+        .check();
+
+      await expect(page.getByTestId("content-aware-resize-submit")).toBeEnabled();
+    });
+  });
+
+  // ========================================================================
+  // MEME GENERATOR
+  // ========================================================================
+  test.describe("Meme Generator", () => {
+    test("renders tool page without standard dropzone", async ({ loggedInPage: page }) => {
+      await page.goto("/meme-generator");
+      await expect(page.getByText("Meme").first()).toBeVisible();
+
+      // Meme generator uses no-dropzone display mode
+      await expect(page.getByText("Upload from computer")).not.toBeVisible();
+    });
+
+    test("shows gallery phase with template selection prompt", async ({ loggedInPage: page }) => {
+      await page.goto("/meme-generator");
+
+      // Gallery phase shows template selection guidance
+      await expect(page.getByText(/select a template|upload your own/i).first()).toBeVisible();
+    });
+
+    test("shows template thumbnails in gallery", async ({ loggedInPage: page }) => {
+      await page.goto("/meme-generator");
+
+      // Gallery should show meme template thumbnails or an upload option
+      await expect(
+        page
+          .getByText(/upload/i)
+          .first()
+          .or(page.locator("img").first()),
+      ).toBeVisible({ timeout: 10_000 });
+    });
+  });
 });
