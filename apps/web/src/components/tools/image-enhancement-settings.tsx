@@ -57,6 +57,8 @@ const PRESET_MULTIPLIERS: Record<EnhancementMode, Record<string, number>> = {
     saturation: 1.0,
     sharpness: 1.0,
     denoise: 1.0,
+    clahe: 1.0,
+    normalise: 1.0,
   },
   portrait: {
     brightness: 0.8,
@@ -65,6 +67,8 @@ const PRESET_MULTIPLIERS: Record<EnhancementMode, Record<string, number>> = {
     saturation: 0.6,
     sharpness: 0.5,
     denoise: 1.5,
+    clahe: 0.7,
+    normalise: 0.8,
   },
   landscape: {
     brightness: 1.0,
@@ -73,6 +77,8 @@ const PRESET_MULTIPLIERS: Record<EnhancementMode, Record<string, number>> = {
     saturation: 1.4,
     sharpness: 1.5,
     denoise: 0.5,
+    clahe: 1.3,
+    normalise: 1.2,
   },
   "low-light": {
     brightness: 1.8,
@@ -81,6 +87,8 @@ const PRESET_MULTIPLIERS: Record<EnhancementMode, Record<string, number>> = {
     saturation: 0.8,
     sharpness: 1.2,
     denoise: 2.0,
+    clahe: 1.5,
+    normalise: 1.5,
   },
   food: {
     brightness: 0.8,
@@ -89,6 +97,8 @@ const PRESET_MULTIPLIERS: Record<EnhancementMode, Record<string, number>> = {
     saturation: 1.3,
     sharpness: 1.2,
     denoise: 0.5,
+    clahe: 1.1,
+    normalise: 1.0,
   },
   document: {
     brightness: 1.5,
@@ -97,6 +107,8 @@ const PRESET_MULTIPLIERS: Record<EnhancementMode, Record<string, number>> = {
     saturation: 0.0,
     sharpness: 2.0,
     denoise: 2.0,
+    clahe: 2.0,
+    normalise: 1.5,
   },
 };
 

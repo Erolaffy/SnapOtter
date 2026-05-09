@@ -280,7 +280,7 @@ export function applyCorrections(
     const adj = corrections.sharpness * presets.sharpness * scale;
     if (adj > 2) {
       const sigma = 0.5 + (adj / 100) * 4;
-      result = result.sharpen({ sigma, flat: 1.0 });
+      result = result.sharpen({ sigma, m1: 1.0 });
     }
   }
 
