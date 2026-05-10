@@ -15,6 +15,7 @@ PACKAGES=(
   "apps/web/package.json"
   "apps/api/package.json"
   "apps/docs/package.json"
+  "apps/landing/package.json"
   "packages/shared/package.json"
   "packages/image-engine/package.json"
   "packages/ai/package.json"
@@ -43,5 +44,8 @@ if [ -f "$CONSTANTS" ]; then
   rm -f "$CONSTANTS.bak"
   echo "  Updated APP_VERSION -> $VERSION"
 fi
+
+# Clean up release notes file (consumed by CI, not needed after release commit)
+rm -f "$ROOT/.release-notes.md"
 
 echo "All versions synced to $VERSION"
