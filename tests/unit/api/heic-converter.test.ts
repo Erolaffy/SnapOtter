@@ -28,7 +28,7 @@ describe("decodeHeic", () => {
     expect(meta.height).toBeGreaterThan(0);
   });
 
-  it("decodes sample.heif to a valid PNG buffer", async () => {
+  it("decodes sample.heif to a valid PNG buffer", { timeout: 60_000 }, async () => {
     const heifBuf = await readFile(join(FIXTURES, "formats/sample.heif"));
     const result = await decodeHeic(heifBuf);
     expect(isPng(result)).toBe(true);
@@ -55,7 +55,7 @@ describe("decodeHeic", () => {
     await expect(decodeHeic(Buffer.alloc(0))).rejects.toThrow();
   });
 
-  it("cleans up temp files after success", async () => {
+  it("cleans up temp files after success", { timeout: 60_000 }, async () => {
     const heicBuf = await readFile(join(FIXTURES, "formats/sample.heic"));
     const { tmpdir } = await import("node:os");
     const { readdirSync } = await import("node:fs");

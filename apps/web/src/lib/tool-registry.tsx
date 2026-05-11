@@ -36,7 +36,6 @@ export interface CropProps {
   onCropChange: (crop: Crop) => void;
   onAspectChange: (aspect: number | undefined) => void;
   onGridToggle: (show: boolean) => void;
-  onModeChange?: (mode: "standard" | "content-aware") => void;
 }
 
 export interface EraserProps {

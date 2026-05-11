@@ -229,7 +229,6 @@ export function ToolPage() {
     width: number;
     height: number;
   } | null>(null);
-  const [cropMode, setCropMode] = useState<"standard" | "content-aware">("standard");
 
   const cropState = useMemo(
     () => ({
@@ -267,7 +266,6 @@ export function ToolPage() {
     setCropAspect(undefined);
     setCropShowGrid(true);
     setCropImgDimensions(null);
-    setCropMode("standard");
     setEraserHasStrokes(false);
     setEraserBrushSize(30);
     setEraserSliderInitPos(null);
@@ -391,7 +389,6 @@ export function ToolPage() {
             onCropChange: setCropCrop,
             onAspectChange: setCropAspect,
             onGridToggle: setCropShowGrid,
-            onModeChange: setCropMode,
           }
         : undefined,
     eraserProps:
@@ -459,11 +456,6 @@ export function ToolPage() {
     }
 
     if (displayMode === "interactive-crop" && hasFile && !hasProcessed && originalBlobUrl) {
-      if (cropMode === "content-aware") {
-        const fname = selectedFileName ?? files[0].name;
-        const fsize = selectedFileSize ?? files[0].size;
-        return <ImageViewer src={originalBlobUrl} filename={fname} fileSize={fsize} />;
-      }
       return (
         <CropCanvas
           imageSrc={originalBlobUrl}

@@ -30,6 +30,9 @@ const IDLE_PROGRESS: ToolProgress = {
 // AI tools return 202 and deliver results via SSE (not XHR response).
 const AI_PYTHON_TOOLS = new Set<string>(PYTHON_SIDECAR_TOOLS);
 
+// Tools that are not Python sidecar but still need an extended XHR timeout.
+const LONG_RUNNING_TOOLS = new Set<string>(["content-aware-resize", "content-aware-crop"]);
+
 const UPLOAD_WEIGHT = 15;
 
 export function useToolProcessor(toolId: string) {
@@ -175,7 +178,7 @@ export function useToolProcessor(toolId: string) {
       const xhr = new XMLHttpRequest();
       xhrRef.current = xhr;
 
-      xhr.timeout = isAiTool ? 600_000 : 120_000;
+      xhr.timeout = isAiTool || LONG_RUNNING_TOOLS.has(toolId) ? 600_000 : 120_000;
 
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {

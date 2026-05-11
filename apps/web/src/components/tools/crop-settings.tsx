@@ -5,15 +5,6 @@ import { ProgressCard } from "@/components/common/progress-card";
 import { useToolProcessor } from "@/hooks/use-tool-processor";
 import { useFileStore } from "@/stores/file-store";
 
-const EXTEND_PRESETS = [
-  { label: "16:9", aspect: 16 / 9 },
-  { label: "1:1", aspect: 1 },
-  { label: "4:3", aspect: 4 / 3 },
-  { label: "3:2", aspect: 3 / 2 },
-  { label: "9:16", aspect: 9 / 16 },
-  { label: "4:5", aspect: 4 / 5 },
-];
-
 const ASPECT_PRESETS = [
   { label: "Free", value: undefined as number | undefined },
   { label: "1:1", value: 1 },
@@ -35,7 +26,6 @@ export interface CropSettingsProps {
   onCropChange: (crop: Crop) => void;
   onAspectChange: (aspect: number | undefined) => void;
   onGridToggle: (show: boolean) => void;
-  onModeChange?: (mode: "standard" | "content-aware") => void;
 }
 
 export function CropSettings({
@@ -43,31 +33,16 @@ export function CropSettings({
   onCropChange,
   onAspectChange,
   onGridToggle,
-  onModeChange,
 }: CropSettingsProps) {
   const { files } = useFileStore();
-  const standardCrop = useToolProcessor("crop");
-  const contentAwareCrop = useToolProcessor("content-aware-crop");
-  const [mode, setMode] = useState<"standard" | "content-aware">("standard");
-  const active = mode === "content-aware" ? contentAwareCrop : standardCrop;
-  const { processFiles, processAllFiles, processing, error, downloadUrl, progress } = active;
+  const { processFiles, processAllFiles, processing, error, downloadUrl, progress } =
+    useToolProcessor("crop");
 
   const { crop, aspect, showGrid, imgDimensions } = cropState;
 
   const [customMode, setCustomMode] = useState(false);
   const [customW, setCustomW] = useState("3");
   const [customH, setCustomH] = useState("2");
-
-  // Content-aware extension state
-  const [extendTop, setExtendTop] = useState(0);
-  const [extendRight, setExtendRight] = useState(0);
-  const [extendBottom, setExtendBottom] = useState(0);
-  const [extendLeft, setExtendLeft] = useState(0);
-
-  // Notify parent when mode changes
-  useEffect(() => {
-    onModeChange?.(mode);
-  }, [mode, onModeChange]);
 
   // Convert percentage crop to pixel values
   const toPixels = useCallback(
@@ -205,7 +180,7 @@ export function CropSettings({
         height: Math.max(0.1, crop.height),
         unit: "percent" as const,
       };
-      standardCrop.processAllFiles(files, settings);
+      processAllFiles(files, settings);
     } else {
       const settings = {
         left: pixels.left,
@@ -213,60 +188,16 @@ export function CropSettings({
         width: Math.max(1, pixels.width),
         height: Math.max(1, pixels.height),
       };
-      standardCrop.processFiles(files, settings);
-    }
-  };
-
-  const handleExtendPreset = useCallback(
-    (targetAspect: number) => {
-      if (!imgDimensions) return;
-      const { width: w, height: h } = imgDimensions;
-      const currentAspect = w / h;
-      let top = 0;
-      let right = 0;
-      let bottom = 0;
-      let left = 0;
-      if (targetAspect > currentAspect) {
-        // Need wider -- extend left and right
-        const newWidth = Math.round(h * targetAspect);
-        const extra = newWidth - w;
-        left = Math.round(extra / 2);
-        right = extra - left;
-      } else {
-        // Need taller -- extend top and bottom
-        const newHeight = Math.round(w / targetAspect);
-        const extra = newHeight - h;
-        top = Math.round(extra / 2);
-        bottom = extra - top;
-      }
-      setExtendTop(top);
-      setExtendRight(right);
-      setExtendBottom(bottom);
-      setExtendLeft(left);
-    },
-    [imgDimensions],
-  );
-
-  const handleContentAwareProcess = () => {
-    const settings = { extendTop, extendRight, extendBottom, extendLeft };
-    if (files.length > 1) {
-      contentAwareCrop.processAllFiles(files, settings);
-    } else {
-      contentAwareCrop.processFiles(files, settings);
+      processFiles(files, settings);
     }
   };
 
   const hasFile = files.length > 0;
   const hasSize = pixels.width > 0 && pixels.height > 0;
-  const hasExtension = extendTop > 0 || extendRight > 0 || extendBottom > 0 || extendLeft > 0;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (mode === "content-aware") {
-      if (hasFile && hasExtension && !processing) handleContentAwareProcess();
-    } else {
-      if (hasFile && hasSize && !processing) handleProcess();
-    }
+    if (hasFile && hasSize && !processing) handleProcess();
   };
 
   // Find which preset label matches the current aspect
@@ -278,280 +209,157 @@ export function CropSettings({
     return false;
   })?.label;
 
-  const canSubmit =
-    mode === "content-aware"
-      ? hasFile && hasExtension && !processing
-      : hasFile && hasSize && !processing;
+  const canSubmit = hasFile && hasSize && !processing;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4" data-crop-form>
-      {/* Mode tabs */}
-      <div className="flex gap-1 mb-4">
-        <button
-          type="button"
-          onClick={() => setMode("standard")}
-          className={`flex-1 text-xs py-1.5 rounded ${
-            mode === "standard"
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-muted-foreground"
-          }`}
-        >
-          Standard
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode("content-aware")}
-          className={`flex-1 text-xs py-1.5 rounded ${
-            mode === "content-aware"
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-muted-foreground"
-          }`}
-        >
-          Content-Aware
-        </button>
-      </div>
-
-      {/* Standard tab */}
-      {mode === "standard" && (
-        <>
-          {/* Aspect Ratio */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs text-muted-foreground">Aspect Ratio</p>
-              {aspect !== undefined && (
-                <button
-                  type="button"
-                  onClick={handleSwapAspect}
-                  className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
-                  title="Swap width/height"
-                >
-                  <ArrowLeftRight className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-1">
-              {ASPECT_PRESETS.map(({ label, value }) => (
-                <button
-                  type="button"
-                  key={label}
-                  onClick={() => handleAspectSelect(value)}
-                  className={`px-2 py-1.5 rounded text-xs transition-colors ${
-                    !customMode && activePresetLabel === label
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:bg-primary/20 hover:text-foreground"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={handleCustomSelect}
-                className={`px-2 py-1.5 rounded text-xs transition-colors ${
-                  customMode
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-primary/20 hover:text-foreground"
-                }`}
-              >
-                Custom
-              </button>
-            </div>
-            {customMode && (
-              <div className="flex items-center gap-1.5 mt-2">
-                <input
-                  type="number"
-                  value={customW}
-                  onChange={(e) => {
-                    setCustomW(e.target.value);
-                    const w = Number(e.target.value);
-                    const h = Number(customH);
-                    if (w > 0 && h > 0) applyCustomAspect(w, h);
-                  }}
-                  min={1}
-                  className="w-16 px-2 py-1.5 rounded border border-border bg-background text-sm text-foreground tabular-nums text-center"
-                />
-                <span className="text-xs text-muted-foreground">:</span>
-                <input
-                  type="number"
-                  value={customH}
-                  onChange={(e) => {
-                    setCustomH(e.target.value);
-                    const w = Number(customW);
-                    const h = Number(e.target.value);
-                    if (w > 0 && h > 0) applyCustomAspect(w, h);
-                  }}
-                  min={1}
-                  className="w-16 px-2 py-1.5 rounded border border-border bg-background text-sm text-foreground tabular-nums text-center"
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Position & Size */}
-          <div>
-            <p className="text-xs text-muted-foreground">Position & Size</p>
-            <div className="grid grid-cols-2 gap-2 mt-1">
-              <div>
-                <label htmlFor="crop-x" className="text-[10px] text-muted-foreground">
-                  X{imgDimensions ? ` (of ${imgDimensions.width})` : ""}
-                </label>
-                <input
-                  id="crop-x"
-                  type="number"
-                  value={pixels.left}
-                  onChange={(e) => handlePixelChange("left", Number(e.target.value))}
-                  min={0}
-                  max={imgDimensions ? imgDimensions.width - 1 : undefined}
-                  className="w-full mt-0.5 px-2 py-1.5 rounded border border-border bg-background text-sm text-foreground tabular-nums"
-                />
-              </div>
-              <div>
-                <label htmlFor="crop-y" className="text-[10px] text-muted-foreground">
-                  Y{imgDimensions ? ` (of ${imgDimensions.height})` : ""}
-                </label>
-                <input
-                  id="crop-y"
-                  type="number"
-                  value={pixels.top}
-                  onChange={(e) => handlePixelChange("top", Number(e.target.value))}
-                  min={0}
-                  max={imgDimensions ? imgDimensions.height - 1 : undefined}
-                  className="w-full mt-0.5 px-2 py-1.5 rounded border border-border bg-background text-sm text-foreground tabular-nums"
-                />
-              </div>
-              <div>
-                <label htmlFor="crop-width" className="text-[10px] text-muted-foreground">
-                  Width{imgDimensions ? ` (of ${imgDimensions.width})` : ""}
-                </label>
-                <input
-                  id="crop-width"
-                  type="number"
-                  value={pixels.width}
-                  onChange={(e) => handlePixelChange("width", Number(e.target.value))}
-                  min={1}
-                  max={imgDimensions ? imgDimensions.width : undefined}
-                  className="w-full mt-0.5 px-2 py-1.5 rounded border border-border bg-background text-sm text-foreground tabular-nums"
-                />
-              </div>
-              <div>
-                <label htmlFor="crop-height" className="text-[10px] text-muted-foreground">
-                  Height{imgDimensions ? ` (of ${imgDimensions.height})` : ""}
-                </label>
-                <input
-                  id="crop-height"
-                  type="number"
-                  value={pixels.height}
-                  onChange={(e) => handlePixelChange("height", Number(e.target.value))}
-                  min={1}
-                  max={imgDimensions ? imgDimensions.height : undefined}
-                  className="w-full mt-0.5 px-2 py-1.5 rounded border border-border bg-background text-sm text-foreground tabular-nums"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Grid overlay toggle */}
-          <label className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs cursor-pointer select-none text-muted-foreground hover:text-foreground transition-colors">
-            <input
-              type="checkbox"
-              checked={showGrid}
-              onChange={(e) => onGridToggle(e.target.checked)}
-              className="accent-primary h-3.5 w-3.5"
-            />
-            <Grid3x3 className="h-3.5 w-3.5" />
-            Rule of Thirds
-          </label>
-        </>
-      )}
-
-      {/* Content-Aware tab */}
-      {mode === "content-aware" && (
-        <div className="space-y-4">
-          {/* Aspect ratio presets */}
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Extend to aspect ratio</p>
-            <div className="flex flex-wrap gap-1">
-              {EXTEND_PRESETS.map(({ label, aspect: a }) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => handleExtendPreset(a)}
-                  className="px-2 py-1.5 rounded text-xs bg-muted text-muted-foreground hover:bg-primary/20 hover:text-foreground transition-colors"
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Per-side extension */}
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Extend by (pixels)</p>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label htmlFor="extend-top" className="text-[10px] text-muted-foreground">
-                  Top
-                </label>
-                <input
-                  id="extend-top"
-                  type="number"
-                  value={extendTop}
-                  onChange={(e) => setExtendTop(Math.max(0, Number(e.target.value)))}
-                  min={0}
-                  className="w-full mt-0.5 px-2 py-1.5 rounded border border-border bg-background text-sm text-foreground tabular-nums"
-                />
-              </div>
-              <div>
-                <label htmlFor="extend-right" className="text-[10px] text-muted-foreground">
-                  Right
-                </label>
-                <input
-                  id="extend-right"
-                  type="number"
-                  value={extendRight}
-                  onChange={(e) => setExtendRight(Math.max(0, Number(e.target.value)))}
-                  min={0}
-                  className="w-full mt-0.5 px-2 py-1.5 rounded border border-border bg-background text-sm text-foreground tabular-nums"
-                />
-              </div>
-              <div>
-                <label htmlFor="extend-bottom" className="text-[10px] text-muted-foreground">
-                  Bottom
-                </label>
-                <input
-                  id="extend-bottom"
-                  type="number"
-                  value={extendBottom}
-                  onChange={(e) => setExtendBottom(Math.max(0, Number(e.target.value)))}
-                  min={0}
-                  className="w-full mt-0.5 px-2 py-1.5 rounded border border-border bg-background text-sm text-foreground tabular-nums"
-                />
-              </div>
-              <div>
-                <label htmlFor="extend-left" className="text-[10px] text-muted-foreground">
-                  Left
-                </label>
-                <input
-                  id="extend-left"
-                  type="number"
-                  value={extendLeft}
-                  onChange={(e) => setExtendLeft(Math.max(0, Number(e.target.value)))}
-                  min={0}
-                  className="w-full mt-0.5 px-2 py-1.5 rounded border border-border bg-background text-sm text-foreground tabular-nums"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Output size display */}
-          {imgDimensions && (
-            <p className="text-xs text-muted-foreground">
-              New size: {imgDimensions.width + extendLeft + extendRight} x{" "}
-              {imgDimensions.height + extendTop + extendBottom}
-            </p>
+      {/* Aspect Ratio */}
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-xs text-muted-foreground">Aspect Ratio</p>
+          {aspect !== undefined && (
+            <button
+              type="button"
+              onClick={handleSwapAspect}
+              className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+              title="Swap width/height"
+            >
+              <ArrowLeftRight className="h-3.5 w-3.5" />
+            </button>
           )}
         </div>
-      )}
+        <div className="flex flex-wrap gap-1">
+          {ASPECT_PRESETS.map(({ label, value }) => (
+            <button
+              type="button"
+              key={label}
+              onClick={() => handleAspectSelect(value)}
+              className={`px-2 py-1.5 rounded text-xs transition-colors ${
+                !customMode && activePresetLabel === label
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-primary/20 hover:text-foreground"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={handleCustomSelect}
+            className={`px-2 py-1.5 rounded text-xs transition-colors ${
+              customMode
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-primary/20 hover:text-foreground"
+            }`}
+          >
+            Custom
+          </button>
+        </div>
+        {customMode && (
+          <div className="flex items-center gap-1.5 mt-2">
+            <input
+              type="number"
+              value={customW}
+              onChange={(e) => {
+                setCustomW(e.target.value);
+                const w = Number(e.target.value);
+                const h = Number(customH);
+                if (w > 0 && h > 0) applyCustomAspect(w, h);
+              }}
+              min={1}
+              className="w-16 px-2 py-1.5 rounded border border-border bg-background text-sm text-foreground tabular-nums text-center"
+            />
+            <span className="text-xs text-muted-foreground">:</span>
+            <input
+              type="number"
+              value={customH}
+              onChange={(e) => {
+                setCustomH(e.target.value);
+                const w = Number(customW);
+                const h = Number(e.target.value);
+                if (w > 0 && h > 0) applyCustomAspect(w, h);
+              }}
+              min={1}
+              className="w-16 px-2 py-1.5 rounded border border-border bg-background text-sm text-foreground tabular-nums text-center"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Position & Size */}
+      <div>
+        <p className="text-xs text-muted-foreground">Position & Size</p>
+        <div className="grid grid-cols-2 gap-2 mt-1">
+          <div>
+            <label htmlFor="crop-x" className="text-[10px] text-muted-foreground">
+              X{imgDimensions ? ` (of ${imgDimensions.width})` : ""}
+            </label>
+            <input
+              id="crop-x"
+              type="number"
+              value={pixels.left}
+              onChange={(e) => handlePixelChange("left", Number(e.target.value))}
+              min={0}
+              max={imgDimensions ? imgDimensions.width - 1 : undefined}
+              className="w-full mt-0.5 px-2 py-1.5 rounded border border-border bg-background text-sm text-foreground tabular-nums"
+            />
+          </div>
+          <div>
+            <label htmlFor="crop-y" className="text-[10px] text-muted-foreground">
+              Y{imgDimensions ? ` (of ${imgDimensions.height})` : ""}
+            </label>
+            <input
+              id="crop-y"
+              type="number"
+              value={pixels.top}
+              onChange={(e) => handlePixelChange("top", Number(e.target.value))}
+              min={0}
+              max={imgDimensions ? imgDimensions.height - 1 : undefined}
+              className="w-full mt-0.5 px-2 py-1.5 rounded border border-border bg-background text-sm text-foreground tabular-nums"
+            />
+          </div>
+          <div>
+            <label htmlFor="crop-width" className="text-[10px] text-muted-foreground">
+              Width{imgDimensions ? ` (of ${imgDimensions.width})` : ""}
+            </label>
+            <input
+              id="crop-width"
+              type="number"
+              value={pixels.width}
+              onChange={(e) => handlePixelChange("width", Number(e.target.value))}
+              min={1}
+              max={imgDimensions ? imgDimensions.width : undefined}
+              className="w-full mt-0.5 px-2 py-1.5 rounded border border-border bg-background text-sm text-foreground tabular-nums"
+            />
+          </div>
+          <div>
+            <label htmlFor="crop-height" className="text-[10px] text-muted-foreground">
+              Height{imgDimensions ? ` (of ${imgDimensions.height})` : ""}
+            </label>
+            <input
+              id="crop-height"
+              type="number"
+              value={pixels.height}
+              onChange={(e) => handlePixelChange("height", Number(e.target.value))}
+              min={1}
+              max={imgDimensions ? imgDimensions.height : undefined}
+              className="w-full mt-0.5 px-2 py-1.5 rounded border border-border bg-background text-sm text-foreground tabular-nums"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Grid overlay toggle */}
+      <label className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs cursor-pointer select-none text-muted-foreground hover:text-foreground transition-colors">
+        <input
+          type="checkbox"
+          checked={showGrid}
+          onChange={(e) => onGridToggle(e.target.checked)}
+          className="accent-primary h-3.5 w-3.5"
+        />
+        <Grid3x3 className="h-3.5 w-3.5" />
+        Rule of Thirds
+      </label>
 
       {/* Error */}
       {error && <p className="text-xs text-red-500">{error}</p>}
@@ -561,7 +369,7 @@ export function CropSettings({
         <ProgressCard
           active={processing}
           phase={progress.phase === "idle" ? "uploading" : progress.phase}
-          label={mode === "content-aware" ? "Extending" : "Cropping"}
+          label="Cropping"
           stage={progress.stage}
           percent={progress.percent}
           elapsed={progress.elapsed}
@@ -573,13 +381,7 @@ export function CropSettings({
           disabled={!canSubmit}
           className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
-          {mode === "content-aware"
-            ? files.length > 1
-              ? `Extend (${files.length} files)`
-              : "Extend"
-            : files.length > 1
-              ? `Crop (${files.length} files)`
-              : "Crop"}
+          {files.length > 1 ? `Crop (${files.length} files)` : "Crop"}
         </button>
       )}
 
