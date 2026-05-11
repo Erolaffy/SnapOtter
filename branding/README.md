@@ -18,6 +18,8 @@ Press kit for use in blog posts, articles, reviews, and other publications about
 | `wordmark.svg` | Scalable | "SnapOtter" text mark (dark text) |
 | `wordmark-white.svg` | Scalable | "SnapOtter" text mark (white text, for dark backgrounds) |
 | `banner.svg` | Scalable | Logo + tagline banner on dark background |
+| `dashboard.png` | Screenshot | Full dashboard screenshot for README / marketing |
+| `dashboard_no_detail.png` | Screenshot | Dashboard screenshot without detail panel |
 
 ## Brand Colors
 

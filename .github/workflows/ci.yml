@@ -7,7 +7,7 @@ on:
     paths-ignore:
       - "README.md"
       - "CONTRIBUTING.md"
-      - "images/**"
+      - "branding/**"
       - "apps/docs/**"
       - "apps/landing/**"
       - "docs/**"
@@ -16,7 +16,7 @@ on:
     paths-ignore:
       - "README.md"
       - "CONTRIBUTING.md"
-      - "images/**"
+      - "branding/**"
       - "apps/docs/**"
       - "apps/landing/**"
       - "docs/**"

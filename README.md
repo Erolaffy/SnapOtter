@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="social-preview.png" width="800" alt="SnapOtter — A Self Hosted Image Manipulator">
+  <img src="branding/social-preview.png" width="800" alt="SnapOtter - A Self Hosted Image Manipulator">
 </p>
 
 <p align="center">
@@ -11,7 +11,7 @@
   <a href="https://discord.gg/hr3s7HPUsr"><img src="https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
 </p>
 
-![SnapOtter - Dashboard](images/dashboard.png)
+![SnapOtter - Dashboard](branding/dashboard.png)
 
 ## Key Features
 
