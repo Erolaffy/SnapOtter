@@ -88,7 +88,10 @@ export function UrlImportModal({ onClose, onImport }: UrlImportModalProps) {
   }, [handleClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      onClick={(e) => e.stopPropagation()}
+    >
       {/* Overlay */}
       <div
         aria-hidden="true"

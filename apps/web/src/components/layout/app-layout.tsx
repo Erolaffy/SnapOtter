@@ -18,9 +18,15 @@ interface AppLayoutProps {
   children?: React.ReactNode;
   showToolPanel?: boolean;
   onFiles?: (files: File[]) => void;
+  onUrlImport?: (file: File) => void;
 }
 
-export function AppLayout({ children, showToolPanel = true, onFiles }: AppLayoutProps) {
+export function AppLayout({
+  children,
+  showToolPanel = true,
+  onFiles,
+  onUrlImport,
+}: AppLayoutProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -111,7 +117,7 @@ export function AppLayout({ children, showToolPanel = true, onFiles }: AppLayout
 
       <main className={cn("flex-1 flex flex-col overflow-hidden", isMobile && "pt-12 pb-16")}>
         <div className="flex-1 overflow-y-auto p-6 flex items-center justify-center">
-          {children || <Dropzone onFiles={onFiles} accept="image/*" />}
+          {children || <Dropzone onFiles={onFiles} onUrlImport={onUrlImport} accept="image/*" />}
         </div>
         {!isMobile && (
           <div className="text-center text-xs text-muted-foreground py-2 border-t border-border">

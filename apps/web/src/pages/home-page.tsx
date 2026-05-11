@@ -71,11 +71,18 @@ export function HomePage() {
     [setFiles, reset],
   );
 
+  const handleUrlImport = useCallback(
+    (file: File) => {
+      setFiles([file]);
+    },
+    [setFiles],
+  );
+
   const hasFile = files.length > 0;
 
   // If no file uploaded, show default layout (tool panel + dropzone)
   if (!hasFile) {
-    return <AppLayout onFiles={handleFiles} />;
+    return <AppLayout onFiles={handleFiles} onUrlImport={handleUrlImport} />;
   }
 
   // File uploaded — show tool selector on left, image preview on right
