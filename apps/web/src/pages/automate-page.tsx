@@ -162,7 +162,7 @@ export function AutomatePage() {
     const input = document.createElement("input");
     input.type = "file";
     input.multiple = true;
-    input.accept = "image/*,.heic,.heif,.hif";
+    input.accept = "image/*,.avif,.heic,.heif,.hif";
     input.onchange = (e) => {
       const picked = Array.from((e.target as HTMLInputElement).files || []);
       if (picked.length > 0) addFiles(picked);

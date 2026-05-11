@@ -614,7 +614,7 @@ export function BeautifyControls({
               <input
                 ref={bgInputRef}
                 type="file"
-                accept="image/*,.heic,.heif,.hif"
+                accept="image/*,.avif,.heic,.heif,.hif"
                 onChange={(e) => {
                   const file = e.target.files?.[0] ?? null;
                   setBgImageFile(file);

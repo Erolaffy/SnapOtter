@@ -57,7 +57,7 @@ export function FileUploadArea() {
         </div>
         <input
           type="file"
-          accept="image/*,.heic,.heif,.hif,.jxl,.dng,.cr2,.cr3,.nef,.nrw,.arw,.orf,.rw2,.raf,.pef,.3fr,.iiq,.srw,.x3f,.rwl,.gpr,.fff,.mrw,.mef,.kdc,.dcr,.erf,.ptx,.tga,.psd,.exr,.hdr,.svgz,.jp2,.j2k,.qoi,.eps,.dds,.cur,.apng,.dpx,.cin,.fits,.ppm,.pgm,.pbm,.pfm"
+          accept="image/*,.avif,.heic,.heif,.hif,.jxl,.dng,.cr2,.cr3,.nef,.nrw,.arw,.orf,.rw2,.raf,.pef,.3fr,.iiq,.srw,.x3f,.rwl,.gpr,.fff,.mrw,.mef,.kdc,.dcr,.erf,.ptx,.tga,.psd,.exr,.hdr,.svgz,.jp2,.j2k,.qoi,.eps,.dds,.cur,.apng,.dpx,.cin,.fits,.ppm,.pgm,.pbm,.pfm"
           multiple
           className="hidden"
           onChange={handleInputChange}

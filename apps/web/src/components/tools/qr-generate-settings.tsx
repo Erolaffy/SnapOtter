@@ -666,7 +666,7 @@ export function QrGenerateSettings() {
           <input
             ref={logoInputRef}
             type="file"
-            accept="image/*,.heic,.heif,.hif"
+            accept="image/*,.avif,.heic,.heif,.hif"
             onChange={handleLogoUpload}
             className="hidden"
           />

@@ -105,7 +105,7 @@ function UploadArea() {
     const input = document.createElement("input");
     input.type = "file";
     input.multiple = true;
-    input.accept = "image/*,.heic,.heif,.hif";
+    input.accept = "image/*,.avif,.heic,.heif,.hif";
     input.onchange = (e) => {
       const files = Array.from((e.target as HTMLInputElement).files || []);
       if (files.length > 0) addImages(files);
@@ -595,7 +595,7 @@ function ImageStrip() {
     const input = document.createElement("input");
     input.type = "file";
     input.multiple = true;
-    input.accept = "image/*,.heic,.heif,.hif";
+    input.accept = "image/*,.avif,.heic,.heif,.hif";
     input.onchange = (e) => {
       const files = Array.from((e.target as HTMLInputElement).files || []);
       if (files.length > 0) store.addImages(files);

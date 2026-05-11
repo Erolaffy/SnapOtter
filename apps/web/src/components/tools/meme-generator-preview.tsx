@@ -192,7 +192,7 @@ function TemplateGallery() {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*,.heic,.heif,.hif"
+          accept="image/*,.avif,.heic,.heif,.hif"
           onChange={handleFileChange}
           className="hidden"
         />

@@ -369,7 +369,7 @@ export function RemoveBgControls({ settings: _settings, onChange }: RemoveBgCont
                 Choose background image
                 <input
                   type="file"
-                  accept="image/*,.heic,.heif,.hif"
+                  accept="image/*,.avif,.heic,.heif,.hif"
                   className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0];

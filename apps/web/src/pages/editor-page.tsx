@@ -92,7 +92,7 @@ export function EditorPage() {
   const handleOpenImage = useCallback(() => {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = "image/*,.psd,.tga,.exr,.hdr";
+    input.accept = "image/*,.avif,.psd,.tga,.exr,.hdr";
     input.onchange = async () => {
       const file = input.files?.[0];
       if (!file) return;

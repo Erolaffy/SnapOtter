@@ -110,7 +110,7 @@ export function WatermarkImageSettings() {
         <input
           ref={watermarkInputRef}
           type="file"
-          accept="image/*,.heic,.heif,.hif"
+          accept="image/*,.avif,.heic,.heif,.hif"
           onChange={(e) => setWatermarkFile(e.target.files?.[0] ?? null)}
           className="hidden"
         />
