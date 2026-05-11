@@ -107,12 +107,17 @@ export function ImageViewer({
     .filter(Boolean)
     .join(" ");
 
+  const checkerBg = bgPreview?.showCheckerboard
+    ? { background: "repeating-conic-gradient(#d0d0d0 0% 25%, #f0f0f0 0% 50%) 0 0 / 20px 20px" }
+    : {};
+
   const imageStyle =
     fitMode === "fit"
       ? {
           maxWidth: "100%",
           maxHeight: "100%",
           objectFit: "contain" as const,
+          ...checkerBg,
           ...(previewTransform && {
             transform: previewTransform,
             transition: "transform 0.25s ease, filter 0.15s ease",
@@ -122,6 +127,7 @@ export function ImageViewer({
       : {
           transform: `scale(${zoom / 100})${previewTransform ? ` ${previewTransform}` : ""}`,
           transformOrigin: "center center",
+          ...checkerBg,
           ...(previewTransform && { transition: "transform 0.25s ease, filter 0.15s ease" }),
           ...(cssFilter && { filter: cssFilter, transition: "filter 0.15s ease" }),
         };
@@ -174,12 +180,7 @@ export function ImageViewer({
       <div
         ref={containerRef}
         className="flex-1 flex items-center justify-center overflow-auto p-4"
-        style={{
-          background: bgPreview?.showCheckerboard
-            ? "repeating-conic-gradient(#d0d0d0 0% 25%, #f0f0f0 0% 50%) 0 0 / 20px 20px"
-            : undefined,
-          backgroundColor: !bgPreview?.showCheckerboard ? "hsl(var(--muted) / 0.2)" : undefined,
-        }}
+        style={{ backgroundColor: "hsl(var(--muted) / 0.2)" }}
       >
         {loadError ? (
           <div className="flex flex-col items-center justify-center gap-3 text-center">
