@@ -229,6 +229,7 @@ export function ToolPage() {
     width: number;
     height: number;
   } | null>(null);
+  const [cropMode, setCropMode] = useState<"standard" | "content-aware">("standard");
 
   const cropState = useMemo(
     () => ({
@@ -266,6 +267,7 @@ export function ToolPage() {
     setCropAspect(undefined);
     setCropShowGrid(true);
     setCropImgDimensions(null);
+    setCropMode("standard");
     setEraserHasStrokes(false);
     setEraserBrushSize(30);
     setEraserSliderInitPos(null);
@@ -363,8 +365,11 @@ export function ToolPage() {
     ? canBrowserPreview(processedUrl, currentEntry?.processedFilename)
     : false;
   // Use server-generated preview for non-previewable formats (HEIC, TIFF).
-  // Always a string when hasProcessed is true (processedUrl is non-null).
-  const displayUrl = (processedPreviewUrl ?? processedUrl) as string;
+  // Falls back to the upload-decoded blobUrl so TIFF/DNG always have a renderable src.
+  const displayUrl = (processedPreviewUrl ??
+    (isProcessedPreviewable ? processedUrl : null) ??
+    originalBlobUrl ??
+    processedUrl) as string;
 
   // Build settings props
   const settingsProps = {
@@ -379,6 +384,7 @@ export function ToolPage() {
             onCropChange: setCropCrop,
             onAspectChange: setCropAspect,
             onGridToggle: setCropShowGrid,
+            onModeChange: setCropMode,
           }
         : undefined,
     eraserProps:
@@ -438,6 +444,11 @@ export function ToolPage() {
     }
 
     if (displayMode === "interactive-crop" && hasFile && !hasProcessed && originalBlobUrl) {
+      if (cropMode === "content-aware") {
+        const fname = selectedFileName ?? files[0].name;
+        const fsize = selectedFileSize ?? files[0].size;
+        return <ImageViewer src={originalBlobUrl} filename={fname} fileSize={fsize} />;
+      }
       return (
         <CropCanvas
           imageSrc={originalBlobUrl}
@@ -488,8 +499,8 @@ export function ToolPage() {
       }
     }
 
-    // Non-previewable format with no server-generated preview - show success card
-    if (hasProcessed && !isProcessedPreviewable && !processedPreviewUrl) {
+    // Non-previewable format with no fallback at all - show success card
+    if (hasProcessed && !isProcessedPreviewable && !processedPreviewUrl && !originalBlobUrl) {
       return (
         <div className="flex flex-col items-center justify-center h-full gap-4 text-center p-8">
           <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
@@ -705,7 +716,11 @@ export function ToolPage() {
             fileSize={processedSize}
             fileType={processedFileType}
             downloadUrl={processedUrl}
-            previewUrl={isProcessedPreviewable ? processedUrl : (processedPreviewUrl ?? undefined)}
+            previewUrl={
+              isProcessedPreviewable
+                ? processedUrl
+                : (processedPreviewUrl ?? originalBlobUrl ?? undefined)
+            }
             onUndo={handleUndo}
             currentToolId={tool?.id ?? ""}
           />
