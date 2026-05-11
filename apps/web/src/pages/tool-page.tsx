@@ -57,28 +57,40 @@ function canBrowserPreview(url: string, filename?: string | null): boolean {
   return BROWSER_PREVIEWABLE_EXTS.has(ext);
 }
 
+function getFileFormat(name: string): string {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  return ext.toUpperCase() || "?";
+}
+
+const COLLAPSED_LIMIT = 5;
+
 /** File selection indicator shown in left panel */
 function FileSelectionInfo({
   files,
-  selectedFileName,
-  selectedFileSize,
+  selectedIndex,
+  onSelect,
   onClear,
   onAddMore,
 }: {
   files: File[];
-  selectedFileName: string | null;
-  selectedFileSize: number | null;
+  selectedIndex: number;
+  onSelect: (index: number) => void;
   onClear: () => void;
   onAddMore: () => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   if (files.length === 0) {
     return (
       <p className="text-xs text-muted-foreground italic">Drop or upload an image to get started</p>
     );
   }
 
+  const showToggle = files.length > COLLAPSED_LIMIT;
+  const visible = expanded ? files : files.slice(0, COLLAPSED_LIMIT);
+
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-foreground">Files ({files.length})</span>
         <button
@@ -89,13 +101,38 @@ function FileSelectionInfo({
           + Add more
         </button>
       </div>
-      <div className="flex items-center gap-1.5 text-xs text-foreground bg-muted rounded px-2 py-1.5">
-        <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
-        <span className="truncate flex-1">{selectedFileName ?? files[0].name}</span>
-        <span className="text-muted-foreground shrink-0 ml-1">
-          {formatFileSize(selectedFileSize ?? files[0].size)}
-        </span>
+
+      <div className="space-y-0.5">
+        {visible.map((file, i) => {
+          const isSelected = i === selectedIndex;
+          return (
+            <button
+              key={`${file.name}-${i}`}
+              type="button"
+              onClick={() => onSelect(i)}
+              className={`w-full flex items-center gap-1.5 text-xs rounded px-2 py-1.5 text-left transition-colors ${isSelected ? "bg-primary/10 text-foreground" : "text-muted-foreground hover:bg-muted"}`}
+            >
+              {isSelected && <CheckCircle2 className="h-3 w-3 text-primary shrink-0" />}
+              <span className="truncate flex-1 min-w-0">{file.name}</span>
+              <span className="shrink-0 text-[10px] text-muted-foreground/70">
+                {getFileFormat(file.name)}
+              </span>
+              <span className="shrink-0 text-[10px] tabular-nums">{formatFileSize(file.size)}</span>
+            </button>
+          );
+        })}
       </div>
+
+      {showToggle && (
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          className="text-xs text-primary hover:text-primary/80"
+        >
+          {expanded ? "Show less" : `Show ${files.length - COLLAPSED_LIMIT} more`}
+        </button>
+      )}
+
       <button
         type="button"
         onClick={onClear}
@@ -609,8 +646,8 @@ export function ToolPage() {
             <h3 className="text-sm font-medium text-muted-foreground">Files</h3>
             <FileSelectionInfo
               files={files}
-              selectedFileName={selectedFileName}
-              selectedFileSize={selectedFileSize}
+              selectedIndex={selectedIndex}
+              onSelect={setSelectedIndex}
               onClear={reset}
               onAddMore={handleAddMore}
             />
