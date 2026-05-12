@@ -45,6 +45,7 @@ export function InfoSettings() {
 
       const cached = cacheRef.current.get(index);
       if (cached) {
+        setError(null);
         setInfo(cached);
         return;
       }

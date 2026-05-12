@@ -44,8 +44,9 @@ export function registerInfo(app: FastifyInstance) {
 
       // Decode CLI formats and HEIC before reading metadata
       let metaBuffer = fileBuffer;
+      const ext = filename.split(".").pop()?.toLowerCase();
       if (detectedFormat && needsCliDecode(detectedFormat)) {
-        metaBuffer = await decodeToSharpCompat(fileBuffer, detectedFormat);
+        metaBuffer = await decodeToSharpCompat(fileBuffer, detectedFormat, ext);
       } else {
         metaBuffer = await ensureSharpCompat(fileBuffer);
       }
