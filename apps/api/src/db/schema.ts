@@ -3,10 +3,13 @@ import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
   username: text("username").notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
+  passwordHash: text("password_hash"),
   role: text("role").notNull().default("user"),
   team: text("team").notNull().default("Default"),
   mustChangePassword: integer("must_change_password", { mode: "boolean" }).notNull().default(true),
+  authProvider: text("auth_provider").notNull().default("local"),
+  externalId: text("external_id"),
+  email: text("email"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -32,6 +35,7 @@ export const sessions = sqliteTable("sessions", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+  idToken: text("id_token"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .$defaultFn(() => new Date()),
