@@ -3,8 +3,11 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import sharp from "sharp";
 import { z } from "zod";
 import { formatZodErrors } from "../../lib/errors.js";
+import { validateImageBuffer } from "../../lib/file-validation.js";
+import { decodeToSharpCompat, needsCliDecode } from "../../lib/format-decoders.js";
 import { encodeJxl } from "../../lib/format-encoders.js";
-import { ensureSharpCompat } from "../../lib/heic-converter.js";
+import { decodeHeic } from "../../lib/heic-converter.js";
+import { decompressSvgz, sanitizeSvg } from "../../lib/svg-sanitize.js";
 
 const settingsSchema = z.object({
   outputFormat: z.enum(["original", "jpeg", "png", "webp", "avif", "jxl"]).default("original"),
@@ -103,8 +106,23 @@ export function registerImageToBase64(app: FastifyInstance) {
         try {
           const originalSize = buffer.length;
 
-          // Decode HEIC/HEIF to PNG for Sharp compatibility
-          const decoded = await ensureSharpCompat(buffer);
+          let decoded = buffer;
+          const validation = await validateImageBuffer(buffer, filename);
+          if (validation.valid && validation.format === "heif") {
+            decoded = await decodeHeic(decoded);
+          }
+          if (validation.valid && needsCliDecode(validation.format)) {
+            try {
+              const fileExt = filename.split(".").pop()?.toLowerCase();
+              decoded = await decodeToSharpCompat(decoded, validation.format, fileExt);
+            } catch {
+              await sharp(decoded).metadata();
+            }
+          }
+          if (validation.valid && validation.format === "svg") {
+            decoded = decompressSvgz(decoded);
+            decoded = sanitizeSvg(decoded);
+          }
           let pipeline = sharp(decoded);
 
           // Get original metadata for dimensions

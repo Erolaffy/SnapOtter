@@ -6,9 +6,12 @@ import sharp from "sharp";
 import { z } from "zod";
 import { autoOrient } from "../../lib/auto-orient.js";
 import { formatZodErrors } from "../../lib/errors.js";
+import { validateImageBuffer } from "../../lib/file-validation.js";
 import { sanitizeFilename } from "../../lib/filename.js";
+import { decodeToSharpCompat, needsCliDecode } from "../../lib/format-decoders.js";
 import { encodeJxl } from "../../lib/format-encoders.js";
-import { ensureSharpCompat } from "../../lib/heic-converter.js";
+import { decodeHeic } from "../../lib/heic-converter.js";
+import { decompressSvgz, sanitizeSvg } from "../../lib/svg-sanitize.js";
 import { registerToolProcessFn } from "../tool-factory.js";
 
 const settingsSchema = z.object({
@@ -83,7 +86,54 @@ export function registerSplit(app: FastifyInstance) {
     }
 
     try {
-      fileBuffer = await autoOrient(await ensureSharpCompat(fileBuffer));
+      const validation = await validateImageBuffer(fileBuffer, filename);
+      if (!validation.valid) {
+        return reply.status(400).send({ error: `Invalid image: ${validation.reason}` });
+      }
+
+      if (validation.format === "heif") {
+        try {
+          fileBuffer = await decodeHeic(fileBuffer);
+        } catch (err) {
+          return reply.status(422).send({
+            error: "Failed to decode HEIC file. Ensure libheif-examples is installed.",
+            details: err instanceof Error ? err.message : String(err),
+          });
+        }
+        const ext = filename.match(/\.[^.]+$/)?.[0];
+        if (ext) filename = `${filename.slice(0, -ext.length)}.png`;
+      }
+
+      if (needsCliDecode(validation.format)) {
+        try {
+          const fileExt = filename.split(".").pop()?.toLowerCase();
+          fileBuffer = await decodeToSharpCompat(fileBuffer, validation.format, fileExt);
+        } catch {
+          try {
+            await sharp(fileBuffer).metadata();
+          } catch (err) {
+            return reply.status(422).send({
+              error: `Failed to decode ${validation.format.toUpperCase()} file`,
+              details: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+        const ext = filename.match(/\.[^.]+$/)?.[0];
+        if (ext) filename = `${filename.slice(0, -ext.length)}.png`;
+      }
+
+      if (validation.format === "svg") {
+        try {
+          fileBuffer = decompressSvgz(fileBuffer);
+          fileBuffer = sanitizeSvg(fileBuffer);
+        } catch (err) {
+          return reply.status(400).send({
+            error: err instanceof Error ? err.message : "Invalid SVG",
+          });
+        }
+      }
+
+      fileBuffer = await autoOrient(fileBuffer);
       const metadata = await sharp(fileBuffer).metadata();
       const fullW = metadata.width ?? 0;
       const fullH = metadata.height ?? 0;

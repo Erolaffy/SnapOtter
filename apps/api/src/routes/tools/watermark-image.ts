@@ -3,8 +3,11 @@ import sharp from "sharp";
 import { z } from "zod";
 import { autoOrient } from "../../lib/auto-orient.js";
 import { formatZodErrors } from "../../lib/errors.js";
+import { validateImageBuffer } from "../../lib/file-validation.js";
 import { sanitizeFilename } from "../../lib/filename.js";
-import { ensureSharpCompat } from "../../lib/heic-converter.js";
+import { decodeToSharpCompat, needsCliDecode } from "../../lib/format-decoders.js";
+import { decodeHeic } from "../../lib/heic-converter.js";
+import { decompressSvgz, sanitizeSvg } from "../../lib/svg-sanitize.js";
 
 const settingsSchema = z.object({
   position: z
@@ -73,9 +76,86 @@ export function registerWatermarkImage(app: FastifyInstance) {
     }
 
     try {
-      // Decode HEIC/HEIF if needed, then normalize EXIF orientation
-      mainBuffer = await autoOrient(await ensureSharpCompat(mainBuffer));
-      watermarkBuffer = await autoOrient(await ensureSharpCompat(watermarkBuffer));
+      const valMain = await validateImageBuffer(mainBuffer, filename);
+      if (!valMain.valid) {
+        return reply.status(400).send({ error: `Invalid image: ${valMain.reason}` });
+      }
+      if (valMain.format === "heif") {
+        try {
+          mainBuffer = await decodeHeic(mainBuffer);
+        } catch (err) {
+          return reply.status(422).send({
+            error: "Failed to decode HEIC file. Ensure libheif-examples is installed.",
+            details: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+      if (needsCliDecode(valMain.format)) {
+        try {
+          const ext = filename.split(".").pop()?.toLowerCase();
+          mainBuffer = await decodeToSharpCompat(mainBuffer, valMain.format, ext);
+        } catch {
+          try {
+            await sharp(mainBuffer).metadata();
+          } catch (err) {
+            return reply.status(422).send({
+              error: `Failed to decode ${valMain.format.toUpperCase()} file`,
+              details: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+      }
+      if (valMain.format === "svg") {
+        try {
+          mainBuffer = decompressSvgz(mainBuffer);
+          mainBuffer = sanitizeSvg(mainBuffer);
+        } catch (err) {
+          return reply.status(400).send({
+            error: err instanceof Error ? err.message : "Invalid SVG",
+          });
+        }
+      }
+      mainBuffer = await autoOrient(mainBuffer);
+
+      const valWm = await validateImageBuffer(watermarkBuffer, "watermark");
+      if (!valWm.valid) {
+        return reply.status(400).send({ error: `Invalid watermark image: ${valWm.reason}` });
+      }
+      if (valWm.format === "heif") {
+        try {
+          watermarkBuffer = await decodeHeic(watermarkBuffer);
+        } catch (err) {
+          return reply.status(422).send({
+            error: "Failed to decode watermark (HEIC). Ensure libheif-examples is installed.",
+            details: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+      if (needsCliDecode(valWm.format)) {
+        try {
+          watermarkBuffer = await decodeToSharpCompat(watermarkBuffer, valWm.format);
+        } catch {
+          try {
+            await sharp(watermarkBuffer).metadata();
+          } catch (err) {
+            return reply.status(422).send({
+              error: `Failed to decode watermark (${valWm.format.toUpperCase()})`,
+              details: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+      }
+      if (valWm.format === "svg") {
+        try {
+          watermarkBuffer = decompressSvgz(watermarkBuffer);
+          watermarkBuffer = sanitizeSvg(watermarkBuffer);
+        } catch (err) {
+          return reply.status(400).send({
+            error: err instanceof Error ? err.message : "Invalid SVG (watermark)",
+          });
+        }
+      }
+      watermarkBuffer = await autoOrient(watermarkBuffer);
 
       const mainImage = sharp(mainBuffer);
       const mainMeta = await mainImage.metadata();

@@ -8,8 +8,10 @@ import { autoOrient } from "../../lib/auto-orient.js";
 import { formatZodErrors } from "../../lib/errors.js";
 import { validateImageBuffer } from "../../lib/file-validation.js";
 import { sanitizeFilename } from "../../lib/filename.js";
+import { decodeToSharpCompat, needsCliDecode } from "../../lib/format-decoders.js";
 import { encodeJxl } from "../../lib/format-encoders.js";
-import { ensureSharpCompat } from "../../lib/heic-converter.js";
+import { decodeHeic } from "../../lib/heic-converter.js";
+import { decompressSvgz, sanitizeSvg } from "../../lib/svg-sanitize.js";
 import { createWorkspace } from "../../lib/workspace.js";
 
 // ── Template definitions (mirrors the frontend) ─────────────────────
@@ -463,7 +465,42 @@ export function registerCollage(app: FastifyInstance) {
           .status(400)
           .send({ error: `Invalid file "${file.filename}": ${validation.reason}` });
       }
-      file.buffer = await autoOrient(await ensureSharpCompat(file.buffer));
+      if (validation.format === "heif") {
+        try {
+          file.buffer = await decodeHeic(file.buffer);
+        } catch (err) {
+          return reply.status(422).send({
+            error: `Failed to decode "${file.filename}" (HEIC). Ensure libheif-examples is installed.`,
+            details: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+      if (needsCliDecode(validation.format)) {
+        try {
+          const fileExt = file.filename.split(".").pop()?.toLowerCase();
+          file.buffer = await decodeToSharpCompat(file.buffer, validation.format, fileExt);
+        } catch {
+          try {
+            await sharp(file.buffer).metadata();
+          } catch (err) {
+            return reply.status(422).send({
+              error: `Failed to decode "${file.filename}" (${validation.format.toUpperCase()})`,
+              details: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+      }
+      if (validation.format === "svg") {
+        try {
+          file.buffer = decompressSvgz(file.buffer);
+          file.buffer = sanitizeSvg(file.buffer);
+        } catch (err) {
+          return reply.status(400).send({
+            error: `Invalid SVG "${file.filename}": ${err instanceof Error ? err.message : "Unknown error"}`,
+          });
+        }
+      }
+      file.buffer = await autoOrient(file.buffer);
     }
 
     let settings: z.infer<typeof settingsSchema>;

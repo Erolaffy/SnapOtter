@@ -11,7 +11,7 @@ import { isToolInstalled } from "../../lib/feature-status.js";
 import { validateImageBuffer } from "../../lib/file-validation.js";
 import { sanitizeFilename } from "../../lib/filename.js";
 import { decodeToSharpCompat, needsCliDecode } from "../../lib/format-decoders.js";
-import { decodeHeic, ensureSharpCompat } from "../../lib/heic-converter.js";
+import { decodeHeic } from "../../lib/heic-converter.js";
 import { createWorkspace } from "../../lib/workspace.js";
 import { updateSingleFileProgress } from "../progress.js";
 import { registerToolProcessFn } from "../tool-factory.js";
@@ -215,7 +215,19 @@ export function registerRedEyeRemoval(app: FastifyInstance) {
         format?: string;
         quality?: number;
       };
-      const orientedBuffer = await autoOrient(await ensureSharpCompat(inputBuffer));
+      let decoded = inputBuffer;
+      const validation = await validateImageBuffer(decoded, filename);
+      if (validation.valid && validation.format === "heif") {
+        decoded = await decodeHeic(decoded);
+      }
+      if (validation.valid && needsCliDecode(validation.format)) {
+        try {
+          decoded = await decodeToSharpCompat(decoded, validation.format);
+        } catch {
+          /* batch handler already decoded */
+        }
+      }
+      const orientedBuffer = await autoOrient(decoded);
       const jobId = randomUUID();
       const workspacePath = await createWorkspace(jobId);
       const result = await removeRedEye(orientedBuffer, join(workspacePath, "output"), {

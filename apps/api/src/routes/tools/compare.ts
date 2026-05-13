@@ -4,7 +4,10 @@ import { join } from "node:path";
 import type { FastifyInstance } from "fastify";
 import sharp from "sharp";
 import { autoOrient } from "../../lib/auto-orient.js";
-import { ensureSharpCompat } from "../../lib/heic-converter.js";
+import { validateImageBuffer } from "../../lib/file-validation.js";
+import { decodeToSharpCompat, needsCliDecode } from "../../lib/format-decoders.js";
+import { decodeHeic } from "../../lib/heic-converter.js";
+import { decompressSvgz, sanitizeSvg } from "../../lib/svg-sanitize.js";
 import { createWorkspace } from "../../lib/workspace.js";
 
 /**
@@ -43,9 +46,85 @@ export function registerCompare(app: FastifyInstance) {
     }
 
     try {
-      // Decode HEIC/HEIF if needed, then normalize EXIF orientation
-      bufferA = await autoOrient(await ensureSharpCompat(bufferA));
-      bufferB = await autoOrient(await ensureSharpCompat(bufferB));
+      const valA = await validateImageBuffer(bufferA, "image");
+      if (!valA.valid) {
+        return reply.status(400).send({ error: `Invalid first image: ${valA.reason}` });
+      }
+      if (valA.format === "heif") {
+        try {
+          bufferA = await decodeHeic(bufferA);
+        } catch (err) {
+          return reply.status(422).send({
+            error: "Failed to decode first image (HEIC). Ensure libheif-examples is installed.",
+            details: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+      if (needsCliDecode(valA.format)) {
+        try {
+          bufferA = await decodeToSharpCompat(bufferA, valA.format);
+        } catch {
+          try {
+            await sharp(bufferA).metadata();
+          } catch (err) {
+            return reply.status(422).send({
+              error: `Failed to decode first image (${valA.format.toUpperCase()})`,
+              details: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+      }
+      if (valA.format === "svg") {
+        try {
+          bufferA = decompressSvgz(bufferA);
+          bufferA = sanitizeSvg(bufferA);
+        } catch (err) {
+          return reply.status(400).send({
+            error: err instanceof Error ? err.message : "Invalid SVG (first image)",
+          });
+        }
+      }
+      bufferA = await autoOrient(bufferA);
+
+      const valB = await validateImageBuffer(bufferB, "image");
+      if (!valB.valid) {
+        return reply.status(400).send({ error: `Invalid second image: ${valB.reason}` });
+      }
+      if (valB.format === "heif") {
+        try {
+          bufferB = await decodeHeic(bufferB);
+        } catch (err) {
+          return reply.status(422).send({
+            error: "Failed to decode second image (HEIC). Ensure libheif-examples is installed.",
+            details: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+      if (needsCliDecode(valB.format)) {
+        try {
+          bufferB = await decodeToSharpCompat(bufferB, valB.format);
+        } catch {
+          try {
+            await sharp(bufferB).metadata();
+          } catch (err) {
+            return reply.status(422).send({
+              error: `Failed to decode second image (${valB.format.toUpperCase()})`,
+              details: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+      }
+      if (valB.format === "svg") {
+        try {
+          bufferB = decompressSvgz(bufferB);
+          bufferB = sanitizeSvg(bufferB);
+        } catch (err) {
+          return reply.status(400).send({
+            error: err instanceof Error ? err.message : "Invalid SVG (second image)",
+          });
+        }
+      }
+      bufferB = await autoOrient(bufferB);
 
       // Normalize both to same size for comparison
       const metaA = await sharp(bufferA).metadata();

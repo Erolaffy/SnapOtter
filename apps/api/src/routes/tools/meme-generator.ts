@@ -7,8 +7,11 @@ import sharp from "sharp";
 import { z } from "zod";
 import { autoOrient } from "../../lib/auto-orient.js";
 import { formatZodErrors } from "../../lib/errors.js";
-import { ensureSharpCompat } from "../../lib/heic-converter.js";
+import { validateImageBuffer } from "../../lib/file-validation.js";
+import { decodeToSharpCompat, needsCliDecode } from "../../lib/format-decoders.js";
+import { decodeHeic } from "../../lib/heic-converter.js";
 import { renderMemeTextSvg } from "../../lib/meme-text-renderer.js";
+import { decompressSvgz, sanitizeSvg } from "../../lib/svg-sanitize.js";
 import { createWorkspace } from "../../lib/workspace.js";
 import { registerToolProcessFn } from "../tool-factory.js";
 
@@ -178,7 +181,20 @@ export function registerMemeGenerator(app: FastifyInstance) {
     settingsSchema: settingsSchema as z.ZodType<unknown, z.ZodTypeDef, unknown>,
     process: async (inputBuffer: Buffer, settings: unknown, filename: string) => {
       const parsed = settingsSchema.parse(settings);
-      const buf = await autoOrient(await ensureSharpCompat(inputBuffer));
+      let buf = inputBuffer;
+      const validation = await validateImageBuffer(buf, filename);
+      if (validation.valid && validation.format === "heif") {
+        buf = await decodeHeic(buf);
+      }
+      if (validation.valid && needsCliDecode(validation.format)) {
+        try {
+          const fileExt = filename.split(".").pop()?.toLowerCase();
+          buf = await decodeToSharpCompat(buf, validation.format, fileExt);
+        } catch {
+          /* batch handler already decoded */
+        }
+      }
+      buf = await autoOrient(buf);
       return processMeme(buf, parsed, filename);
     },
   });
@@ -263,7 +279,46 @@ export function registerMemeGenerator(app: FastifyInstance) {
       if (!imageBuffer) {
         return reply.status(400).send({ error: "No image provided" });
       }
-      imageBuffer = await autoOrient(await ensureSharpCompat(imageBuffer));
+      const validation = await validateImageBuffer(imageBuffer, filename);
+      if (!validation.valid) {
+        return reply.status(400).send({ error: `Invalid image: ${validation.reason}` });
+      }
+      if (validation.format === "heif") {
+        try {
+          imageBuffer = await decodeHeic(imageBuffer);
+        } catch (err) {
+          return reply.status(422).send({
+            error: "Failed to decode HEIC file. Ensure libheif-examples is installed.",
+            details: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+      if (needsCliDecode(validation.format)) {
+        try {
+          const fileExt = filename.split(".").pop()?.toLowerCase();
+          imageBuffer = await decodeToSharpCompat(imageBuffer, validation.format, fileExt);
+        } catch {
+          try {
+            await sharp(imageBuffer).metadata();
+          } catch (err) {
+            return reply.status(422).send({
+              error: `Failed to decode ${validation.format.toUpperCase()} file`,
+              details: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+      }
+      if (validation.format === "svg") {
+        try {
+          imageBuffer = decompressSvgz(imageBuffer);
+          imageBuffer = sanitizeSvg(imageBuffer);
+        } catch (err) {
+          return reply.status(400).send({
+            error: err instanceof Error ? err.message : "Invalid SVG",
+          });
+        }
+      }
+      imageBuffer = await autoOrient(imageBuffer);
 
       const output = await processMeme(imageBuffer, settings, filename, templateTextBoxes);
 

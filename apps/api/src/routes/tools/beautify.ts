@@ -19,8 +19,11 @@ import {
 import { renderFrame } from "../../lib/beautify/frames.js";
 import { applyShadow } from "../../lib/beautify/shadow.js";
 import { formatZodErrors } from "../../lib/errors.js";
+import { validateImageBuffer } from "../../lib/file-validation.js";
 import { sanitizeFilename } from "../../lib/filename.js";
-import { ensureSharpCompat } from "../../lib/heic-converter.js";
+import { decodeToSharpCompat, needsCliDecode } from "../../lib/format-decoders.js";
+import { decodeHeic } from "../../lib/heic-converter.js";
+import { decompressSvgz, sanitizeSvg } from "../../lib/svg-sanitize.js";
 import { createWorkspace } from "../../lib/workspace.js";
 import { registerToolProcessFn } from "../tool-factory.js";
 
@@ -74,7 +77,24 @@ export async function processBeautify(
   bgImageBuffer?: Buffer,
 ): Promise<Buffer> {
   // 1. Decode & Prepare
-  let buf = await autoOrient(await ensureSharpCompat(inputBuffer));
+  let buf = inputBuffer;
+  const validation = await validateImageBuffer(buf, _filename);
+  if (validation.valid && validation.format === "heif") {
+    buf = await decodeHeic(buf);
+  }
+  if (validation.valid && needsCliDecode(validation.format)) {
+    try {
+      const fileExt = _filename.split(".").pop()?.toLowerCase();
+      buf = await decodeToSharpCompat(buf, validation.format, fileExt);
+    } catch {
+      await sharp(buf).metadata();
+    }
+  }
+  if (validation.valid && validation.format === "svg") {
+    buf = decompressSvgz(buf);
+    buf = sanitizeSvg(buf);
+  }
+  buf = await autoOrient(buf);
   buf = await sharp(buf).ensureAlpha().png().toBuffer();
 
   // 2. Apply Border Radius (skip for device frames that have their own bezels)

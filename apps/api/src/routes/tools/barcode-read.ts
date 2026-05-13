@@ -9,7 +9,9 @@ import { autoOrient } from "../../lib/auto-orient.js";
 import { formatZodErrors } from "../../lib/errors.js";
 import { validateImageBuffer } from "../../lib/file-validation.js";
 import { sanitizeFilename } from "../../lib/filename.js";
-import { ensureSharpCompat } from "../../lib/heic-converter.js";
+import { decodeToSharpCompat, needsCliDecode } from "../../lib/format-decoders.js";
+import { decodeHeic } from "../../lib/heic-converter.js";
+import { decompressSvgz, sanitizeSvg } from "../../lib/svg-sanitize.js";
 import { createWorkspace } from "../../lib/workspace.js";
 
 const settingsSchema = z.object({
@@ -136,8 +138,41 @@ export function registerBarcodeRead(app: FastifyInstance) {
     try {
       const tryHarder = settings.tryHarder;
 
-      // Decode HEIC/HEIF if needed, then auto-orient
-      fileBuffer = await ensureSharpCompat(fileBuffer);
+      if (validation.format === "heif") {
+        try {
+          fileBuffer = await decodeHeic(fileBuffer);
+        } catch (err) {
+          return reply.status(422).send({
+            error: "Failed to decode HEIC file. Ensure libheif-examples is installed.",
+            details: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+      if (needsCliDecode(validation.format)) {
+        try {
+          const fileExt = filename.split(".").pop()?.toLowerCase();
+          fileBuffer = await decodeToSharpCompat(fileBuffer, validation.format, fileExt);
+        } catch {
+          try {
+            await sharp(fileBuffer).metadata();
+          } catch (err) {
+            return reply.status(422).send({
+              error: `Failed to decode ${validation.format.toUpperCase()} file`,
+              details: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+      }
+      if (validation.format === "svg") {
+        try {
+          fileBuffer = decompressSvgz(fileBuffer);
+          fileBuffer = sanitizeSvg(fileBuffer);
+        } catch (err) {
+          return reply.status(400).send({
+            error: err instanceof Error ? err.message : "Invalid SVG",
+          });
+        }
+      }
       fileBuffer = await autoOrient(fileBuffer);
 
       // Convert to raw RGBA pixel data

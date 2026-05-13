@@ -29,7 +29,8 @@ import {
 } from "../lib/file-storage.js";
 import { validateImageBuffer } from "../lib/file-validation.js";
 import { sanitizeFilename } from "../lib/filename.js";
-import { ensureSharpCompat } from "../lib/heic-converter.js";
+import { decodeToSharpCompat, needsCliDecode } from "../lib/format-decoders.js";
+import { decodeHeic } from "../lib/heic-converter.js";
 import { isSvgBuffer, sanitizeSvg } from "../lib/svg-sanitize.js";
 import { hasEffectivePermission } from "../permissions.js";
 import { getAuthUser, requireAuth } from "../plugins/auth.js";
@@ -386,8 +387,20 @@ export async function userFileRoutes(app: FastifyInstance): Promise<void> {
       const filePath = getStoredFilePath(file.storedName);
 
       try {
-        // Read file and decode HEIC/HEIF if needed before Sharp processing
-        const fileBuffer = await ensureSharpCompat(await readFile(filePath));
+        const rawBuffer = await readFile(filePath);
+        const validation = await validateImageBuffer(rawBuffer, file.originalName);
+        let decoded: Buffer<ArrayBuffer> = Buffer.from(rawBuffer);
+        if (validation.valid && validation.format === "heif") {
+          decoded = Buffer.from(await decodeHeic(rawBuffer));
+        } else if (validation.valid && needsCliDecode(validation.format)) {
+          try {
+            const fileExt = file.originalName.split(".").pop()?.toLowerCase();
+            decoded = Buffer.from(await decodeToSharpCompat(rawBuffer, validation.format, fileExt));
+          } catch {
+            // Sharp will attempt the raw buffer directly
+          }
+        }
+        const fileBuffer = decoded;
 
         const thumbnail = await sharp(fileBuffer)
           .resize(300, null, { withoutEnlargement: true })

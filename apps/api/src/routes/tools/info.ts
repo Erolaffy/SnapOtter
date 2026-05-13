@@ -8,7 +8,7 @@ import sharp from "sharp";
 import { validateImageBuffer } from "../../lib/file-validation.js";
 import { sanitizeFilename } from "../../lib/filename.js";
 import { decodeToSharpCompat, needsCliDecode } from "../../lib/format-decoders.js";
-import { ensureSharpCompat } from "../../lib/heic-converter.js";
+import { decodeHeic } from "../../lib/heic-converter.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -66,7 +66,7 @@ export function registerInfo(app: FastifyInstance) {
         if (detectedFormat && needsCliDecode(detectedFormat)) {
           metaBuffer = await decodeToSharpCompat(fileBuffer, detectedFormat, ext);
         } else {
-          metaBuffer = await ensureSharpCompat(fileBuffer);
+          metaBuffer = await decodeHeic(fileBuffer);
         }
       }
 
