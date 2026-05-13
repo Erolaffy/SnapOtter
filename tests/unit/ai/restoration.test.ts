@@ -69,13 +69,6 @@ describe("restorePhoto", () => {
       );
     });
 
-    it("serializes mode option", async () => {
-      await restorePhoto(FAKE_INPUT, FAKE_OUTPUT_DIR, { mode: "heavy" });
-
-      const args = vi.mocked(runPythonWithProgress).mock.calls[0][1];
-      expect(JSON.parse(args[2])).toEqual({ mode: "heavy" });
-    });
-
     it("serializes scratchRemoval option", async () => {
       await restorePhoto(FAKE_INPUT, FAKE_OUTPUT_DIR, { scratchRemoval: true });
 
@@ -111,15 +104,22 @@ describe("restorePhoto", () => {
       expect(JSON.parse(args[2])).toEqual({ colorize: true });
     });
 
+    it("serializes colorizeStrength option", async () => {
+      await restorePhoto(FAKE_INPUT, FAKE_OUTPUT_DIR, { colorizeStrength: 60 });
+
+      const args = vi.mocked(runPythonWithProgress).mock.calls[0][1];
+      expect(JSON.parse(args[2])).toEqual({ colorizeStrength: 60 });
+    });
+
     it("serializes all options together", async () => {
       const allOptions = {
-        mode: "auto",
         scratchRemoval: true,
         faceEnhancement: true,
         fidelity: 0.8,
         denoise: true,
         denoiseStrength: 0.5,
         colorize: true,
+        colorizeStrength: 75,
       };
       await restorePhoto(FAKE_INPUT, FAKE_OUTPUT_DIR, allOptions);
 
@@ -353,13 +353,6 @@ describe("restorePhoto", () => {
       );
 
       await expect(restorePhoto(FAKE_INPUT, FAKE_OUTPUT_DIR)).rejects.toThrow("segmentation fault");
-    });
-
-    it("passes mode option", async () => {
-      await restorePhoto(FAKE_INPUT, FAKE_OUTPUT_DIR, { mode: "light" });
-
-      const args = vi.mocked(runPythonWithProgress).mock.calls[0][1];
-      expect(JSON.parse(args[2])).toEqual({ mode: "light" });
     });
   });
 });

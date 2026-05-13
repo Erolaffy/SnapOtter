@@ -4,13 +4,13 @@ import sharp from "sharp";
 import { type ProgressCallback, parseStdoutJson, runPythonWithProgress } from "./bridge.js";
 
 export interface RestorePhotoOptions {
-  mode?: string;
   scratchRemoval?: boolean;
   faceEnhancement?: boolean;
   fidelity?: number;
   denoise?: boolean;
   denoiseStrength?: number;
   colorize?: boolean;
+  colorizeStrength?: number;
 }
 
 export interface RestorePhotoResult {
