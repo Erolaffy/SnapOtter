@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 import { getDispatcherStatus, initDispatcher, isGpuAvailable } from "@snapotter/ai";
@@ -15,6 +16,7 @@ import { ensureAiDirs, recoverInterruptedInstalls } from "./lib/feature-status.j
 import { shutdownWorkerPool } from "./lib/worker-pool.js";
 import { requirePermission } from "./permissions.js";
 import { authMiddleware, authRoutes, ensureDefaultAdmin } from "./plugins/auth.js";
+import { oidcRoutes } from "./plugins/oidc.js";
 import { registerStatic } from "./plugins/static.js";
 import { registerUpload } from "./plugins/upload.js";
 import { analyticsRoutes } from "./routes/analytics.js";
@@ -70,6 +72,22 @@ function ensureDefaultSettings() {
 }
 
 ensureDefaultSettings();
+
+if (!env.COOKIE_SECRET) {
+  const existing = db
+    .select()
+    .from(schema.settings)
+    .where(eq(schema.settings.key, "cookie_secret"))
+    .get();
+  if (existing) {
+    (env as Record<string, unknown>).COOKIE_SECRET = existing.value;
+  } else {
+    const generated = randomUUID() + randomUUID();
+    db.insert(schema.settings).values({ key: "cookie_secret", value: generated }).run();
+    (env as Record<string, unknown>).COOKIE_SECRET = generated;
+  }
+}
+
 await initAnalytics();
 
 // Mark any jobs left in processing/queued from a previous unclean shutdown
@@ -151,11 +169,20 @@ await app.register(rateLimit, {
 // Multipart upload support
 await registerUpload(app);
 
+// Cookie support (required for OIDC state and session cookies)
+await app.register(cookie, {
+  secret: env.COOKIE_SECRET,
+  hook: "onRequest",
+});
+
 // Auth middleware (must be registered before routes it protects)
 await authMiddleware(app);
 
 // Auth routes
 await authRoutes(app);
+
+// OIDC routes
+await oidcRoutes(app);
 
 // File upload/download routes
 await fileRoutes(app);
@@ -247,9 +274,17 @@ app.get("/api/v1/admin/health", async (request, reply) => {
 });
 
 // Public config endpoint (for frontend to know if auth is required)
-app.get("/api/v1/config/auth", async () => ({
-  authEnabled: env.AUTH_ENABLED,
-}));
+app.get("/api/v1/config/auth", async () => {
+  const config: Record<string, unknown> = {
+    authEnabled: env.AUTH_ENABLED,
+  };
+  if (env.OIDC_ENABLED) {
+    config.oidcEnabled = true;
+    config.oidcProviderName = env.OIDC_PROVIDER_NAME || null;
+    config.oidcLoginUrl = "/api/auth/oidc/login";
+  }
+  return config;
+});
 
 // Serve SPA in production
 if (process.env.NODE_ENV === "production") {

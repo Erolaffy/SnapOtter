@@ -19,6 +19,7 @@ import { dirname } from "node:path";
 mkdirSync(dirname(process.env.DB_PATH!), { recursive: true });
 mkdirSync(process.env.WORKSPACE_PATH!, { recursive: true });
 
+import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import { APP_VERSION } from "@snapotter/shared";
 import { eq } from "drizzle-orm";
@@ -31,6 +32,7 @@ import { db, schema } from "../../apps/api/src/db/index.js";
 import { runMigrations } from "../../apps/api/src/db/migrate.js";
 import { requirePermission } from "../../apps/api/src/permissions.js";
 import { authMiddleware, authRoutes, ensureDefaultAdmin } from "../../apps/api/src/plugins/auth.js";
+import { oidcRoutes } from "../../apps/api/src/plugins/oidc.js";
 import { registerUpload } from "../../apps/api/src/plugins/upload.js";
 import { analyticsRoutes } from "../../apps/api/src/routes/analytics.js";
 import { apiKeyRoutes } from "../../apps/api/src/routes/api-keys.js";
@@ -80,11 +82,17 @@ export async function buildTestApp(): Promise<TestApp> {
   // Multipart upload support
   await registerUpload(app);
 
+  // Cookie support
+  await app.register(cookie, { secret: "test-cookie-secret", hook: "onRequest" });
+
   // Auth middleware (must be registered before routes)
   await authMiddleware(app);
 
   // Auth routes
   await authRoutes(app);
+
+  // OIDC routes
+  await oidcRoutes(app);
 
   // File upload/download routes
   await fileRoutes(app);
@@ -161,9 +169,15 @@ export async function buildTestApp(): Promise<TestApp> {
   });
 
   // Public config endpoint
-  app.get("/api/v1/config/auth", async () => ({
-    authEnabled: env.AUTH_ENABLED,
-  }));
+  app.get("/api/v1/config/auth", async () => {
+    const config: Record<string, unknown> = { authEnabled: env.AUTH_ENABLED };
+    if (env.OIDC_ENABLED) {
+      config.oidcEnabled = true;
+      config.oidcProviderName = env.OIDC_PROVIDER_NAME || null;
+      config.oidcLoginUrl = "/api/auth/oidc/login";
+    }
+    return config;
+  });
 
   // Ensure Fastify is ready (all plugins loaded)
   await app.ready();
