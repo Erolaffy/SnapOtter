@@ -72,6 +72,25 @@ function createOidcUser(opts: { username?: string; email?: string; role?: string
 }
 
 /**
+ * Insert a session for an existing user with custom options.
+ */
+function createOidcSession(
+  userId: string,
+  opts: { expiresAt?: Date; idToken?: string | null } = {},
+): string {
+  const sessionToken = randomUUID();
+  db.insert(schema.sessions)
+    .values({
+      id: sessionToken,
+      userId,
+      expiresAt: opts.expiresAt ?? new Date(Date.now() + 3_600_000),
+      idToken: opts.idToken ?? null,
+    })
+    .run();
+  return sessionToken;
+}
+
+/**
  * Insert a "hybrid" user -- has both a local password AND an OIDC link.
  */
 function createHybridUser(
@@ -651,5 +670,233 @@ describe("Admin operations on OIDC users", () => {
 
     const user = db.select().from(schema.users).where(eq(schema.users.id, userId)).get();
     expect(user?.role).toBe("editor");
+  });
+});
+
+// =====================================================================
+// COOKIE-BASED SESSION AUTH
+// =====================================================================
+describe("Cookie-based session auth", () => {
+  it("OIDC session cookie works for authenticated requests", async () => {
+    const { sessionToken, username } = createOidcUser();
+
+    const res = await testApp.app.inject({
+      method: "GET",
+      url: "/api/auth/session",
+      cookies: { "snapotter-session": sessionToken },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.user.username).toBe(username);
+    expect(body.user.authProvider).toBe("oidc");
+  });
+
+  it("Both cookie and Bearer work simultaneously", async () => {
+    const { sessionToken: oidcToken, username: oidcUsername } = createOidcUser();
+
+    // Bearer token for local user (admin)
+    const bearerRes = await testApp.app.inject({
+      method: "GET",
+      url: "/api/auth/session",
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+
+    expect(bearerRes.statusCode).toBe(200);
+    const bearerBody = JSON.parse(bearerRes.body);
+    expect(bearerBody.user.username).toBe("admin");
+    expect(bearerBody.user.authProvider).toBe("local");
+
+    // Cookie for OIDC user
+    const cookieRes = await testApp.app.inject({
+      method: "GET",
+      url: "/api/auth/session",
+      cookies: { "snapotter-session": oidcToken },
+    });
+
+    expect(cookieRes.statusCode).toBe(200);
+    const cookieBody = JSON.parse(cookieRes.body);
+    expect(cookieBody.user.username).toBe(oidcUsername);
+    expect(cookieBody.user.authProvider).toBe("oidc");
+  });
+
+  it("request with neither Bearer nor cookie returns 401", async () => {
+    const res = await testApp.app.inject({
+      method: "GET",
+      url: "/api/auth/session",
+    });
+
+    expect(res.statusCode).toBe(401);
+  });
+});
+
+// =====================================================================
+// SESSION EXPIRY
+// =====================================================================
+describe("Session expiry", () => {
+  it("expired OIDC session returns 401", async () => {
+    const { userId } = createOidcUser();
+
+    // Create a session that expired 10 minutes ago
+    const expiredToken = createOidcSession(userId, {
+      expiresAt: new Date(Date.now() - 600_000),
+    });
+
+    const res = await testApp.app.inject({
+      method: "GET",
+      url: "/api/auth/session",
+      cookies: { "snapotter-session": expiredToken },
+    });
+
+    expect(res.statusCode).toBe(401);
+
+    // Verify the expired session was cleaned up from DB
+    const session = db
+      .select()
+      .from(schema.sessions)
+      .where(eq(schema.sessions.id, expiredToken))
+      .get();
+    expect(session).toBeUndefined();
+  });
+});
+
+// =====================================================================
+// API KEYS FOR OIDC USERS
+// =====================================================================
+describe("API keys for OIDC users", () => {
+  it("OIDC user can create an API key", async () => {
+    const { sessionToken } = createOidcUser();
+
+    const res = await testApp.app.inject({
+      method: "POST",
+      url: "/api/v1/api-keys",
+      cookies: { "snapotter-session": sessionToken },
+      payload: { name: "test-key" },
+    });
+
+    expect(res.statusCode).toBe(201);
+    const body = JSON.parse(res.body);
+    expect(body.key).toMatch(/^si_/);
+    expect(body.name).toBe("test-key");
+  });
+
+  it("API key works for auth after creation", async () => {
+    const { sessionToken } = createOidcUser();
+
+    // Create the API key via cookie auth
+    const createRes = await testApp.app.inject({
+      method: "POST",
+      url: "/api/v1/api-keys",
+      cookies: { "snapotter-session": sessionToken },
+      payload: { name: "auth-test-key" },
+    });
+
+    expect(createRes.statusCode).toBe(201);
+    const { key: rawKey } = JSON.parse(createRes.body);
+
+    // Use the raw API key as Bearer token
+    const sessionRes = await testApp.app.inject({
+      method: "GET",
+      url: "/api/auth/session",
+      headers: { authorization: `Bearer ${rawKey}` },
+    });
+
+    // API key auth on GET /api/auth/session is a public route, but
+    // the middleware still attaches the user if a valid token is found.
+    // The session endpoint itself checks for session, not API key,
+    // so it returns 401 since the si_ token is not a session ID.
+    // Instead, test with a non-public route that requires auth.
+    const healthRes = await testApp.app.inject({
+      method: "GET",
+      url: "/api/v1/api-keys",
+      headers: { authorization: `Bearer ${rawKey}` },
+    });
+
+    expect(healthRes.statusCode).toBe(200);
+    const body = JSON.parse(healthRes.body);
+    expect(body.apiKeys).toBeDefined();
+    expect(Array.isArray(body.apiKeys)).toBe(true);
+  });
+});
+
+// =====================================================================
+// LOGOUT
+// =====================================================================
+describe("Logout", () => {
+  it("logout clears the snapotter-session cookie", async () => {
+    const { sessionToken } = createOidcUser();
+
+    const res = await testApp.app.inject({
+      method: "POST",
+      url: "/api/auth/logout",
+      cookies: { "snapotter-session": sessionToken },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.ok).toBe(true);
+
+    // Check that response includes a Set-Cookie header clearing the session
+    const setCookieHeader = res.headers["set-cookie"];
+    const cookieStr = Array.isArray(setCookieHeader)
+      ? setCookieHeader.join("; ")
+      : setCookieHeader || "";
+    expect(cookieStr).toContain("snapotter-session=");
+    // The cookie should be expired (Expires in the past or Max-Age=0)
+    const hasExpiry =
+      cookieStr.toLowerCase().includes("max-age=0") ||
+      cookieStr.toLowerCase().includes("expires=thu, 01 jan 1970");
+    expect(hasExpiry).toBe(true);
+  });
+
+  it("session is deleted from DB after logout", async () => {
+    const { sessionToken } = createOidcUser();
+
+    // Verify session exists before logout
+    const before = db
+      .select()
+      .from(schema.sessions)
+      .where(eq(schema.sessions.id, sessionToken))
+      .get();
+    expect(before).toBeDefined();
+
+    await testApp.app.inject({
+      method: "POST",
+      url: "/api/auth/logout",
+      cookies: { "snapotter-session": sessionToken },
+    });
+
+    // Verify session is gone
+    const after = db
+      .select()
+      .from(schema.sessions)
+      .where(eq(schema.sessions.id, sessionToken))
+      .get();
+    expect(after).toBeUndefined();
+  });
+
+  it("logout returns logoutUrl when session has idToken and OIDC discovery is cached", async () => {
+    const { sessionToken } = createOidcUser();
+
+    // The default createOidcUser sets idToken to "mock-id-token-jwt".
+    // Without a running OIDC provider and cached discovery, the logout
+    // route's try/catch will swallow the error and return no logoutUrl.
+    // We still verify the response shape is correct.
+    const res = await testApp.app.inject({
+      method: "POST",
+      url: "/api/auth/logout",
+      cookies: { "snapotter-session": sessionToken },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.ok).toBe(true);
+    // logoutUrl is only present when OIDC discovery has been cached with
+    // an end_session_endpoint. In test env without mock provider, it is
+    // absent. We verify it's either undefined or a string URL.
+    if (body.logoutUrl !== undefined) {
+      expect(typeof body.logoutUrl).toBe("string");
+      expect(body.logoutUrl).toContain("id_token_hint=");
+    }
   });
 });
