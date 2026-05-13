@@ -68,13 +68,14 @@ describe("detectFaceLandmarks", () => {
       );
     });
 
-    it("writes input buffer directly without sharp conversion", async () => {
+    it("converts input buffer to PNG before writing", async () => {
+      const sharp = (await import("sharp")).default;
       await detectFaceLandmarks(FAKE_INPUT);
 
-      // face-landmarks.ts does NOT use sharp -- it writes inputBuffer directly
+      expect(sharp).toHaveBeenCalledWith(FAKE_INPUT);
       expect(writeFile).toHaveBeenCalledWith(
         expect.stringContaining("face_landmarks_"),
-        FAKE_INPUT,
+        Buffer.from("mock-png-data"),
       );
     });
 

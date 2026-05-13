@@ -630,13 +630,13 @@ describe("detectFaceLandmarks", () => {
     await expect(detectFaceLandmarks(INPUT_BUFFER)).rejects.toThrow("MediaPipe not found");
   });
 
-  it("writes raw input buffer (no sharp conversion)", async () => {
+  it("converts input buffer to PNG before writing", async () => {
     mockParseStdoutJson.mockReturnValue({ success: true, faceDetected: false });
 
     await detectFaceLandmarks(INPUT_BUFFER);
 
-    // face-landmarks writes inputBuffer directly, no sharp pipeline
-    expect(mockWriteFile).toHaveBeenCalledWith(expect.any(String), INPUT_BUFFER);
+    expect(mockSharp).toHaveBeenCalledWith(INPUT_BUFFER);
+    expect(mockWriteFile).toHaveBeenCalledWith(expect.any(String), Buffer.from("mock-png"));
   });
 });
 

@@ -1,6 +1,7 @@
 import { unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import sharp from "sharp";
 import { type ProgressCallback, parseStdoutJson, runPythonWithProgress } from "./bridge.js";
 
 export interface FaceLandmarkPoint {
@@ -33,7 +34,8 @@ export async function detectFaceLandmarks(
   const inputPath = join(tmpdir(), `face_landmarks_${Date.now()}.png`);
 
   try {
-    await writeFile(inputPath, inputBuffer);
+    const pngBuffer = await sharp(inputBuffer).png().toBuffer();
+    await writeFile(inputPath, pngBuffer);
     const { stdout } = await runPythonWithProgress(
       "face_landmarks.py",
       [inputPath, "unused", "{}"],
