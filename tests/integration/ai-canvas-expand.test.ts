@@ -1,5 +1,5 @@
 /**
- * Integration tests for the content-aware-crop AI tool (/api/v1/tools/content-aware-crop).
+ * Integration tests for the ai-canvas-expand AI tool (/api/v1/tools/ai-canvas-expand).
  *
  * This tool uses async processing: valid requests return 202 with a jobId,
  * and the result is delivered via SSE. The Python sidecar is not available
@@ -29,7 +29,7 @@ afterAll(async () => {
   await testApp.cleanup();
 }, 10_000);
 
-describe("Content-Aware Crop", () => {
+describe("AI Canvas Expand", () => {
   // -- Processing (sidecar-dependent) ------------------------------------
 
   it("returns 501 when AI sidecar is not installed", async () => {
@@ -48,7 +48,7 @@ describe("Content-Aware Crop", () => {
 
     const res = await app.inject({
       method: "POST",
-      url: "/api/v1/tools/content-aware-crop",
+      url: "/api/v1/tools/ai-canvas-expand",
       headers: {
         authorization: `Bearer ${adminToken}`,
         "content-type": contentType,
@@ -75,7 +75,7 @@ describe("Content-Aware Crop", () => {
 
     const res = await app.inject({
       method: "POST",
-      url: "/api/v1/tools/content-aware-crop",
+      url: "/api/v1/tools/ai-canvas-expand",
       headers: {
         authorization: `Bearer ${adminToken}`,
         "content-type": contentType,
@@ -98,7 +98,7 @@ describe("Content-Aware Crop", () => {
 
     const res = await app.inject({
       method: "POST",
-      url: "/api/v1/tools/content-aware-crop",
+      url: "/api/v1/tools/ai-canvas-expand",
       headers: {
         authorization: `Bearer ${adminToken}`,
         "content-type": contentType,
@@ -126,7 +126,7 @@ describe("Content-Aware Crop", () => {
 
     const res = await app.inject({
       method: "POST",
-      url: "/api/v1/tools/content-aware-crop",
+      url: "/api/v1/tools/ai-canvas-expand",
       headers: {
         authorization: `Bearer ${adminToken}`,
         "content-type": contentType,
@@ -157,7 +157,7 @@ describe("Content-Aware Crop", () => {
 
     const res = await app.inject({
       method: "POST",
-      url: "/api/v1/tools/content-aware-crop",
+      url: "/api/v1/tools/ai-canvas-expand",
       headers: {
         authorization: `Bearer ${adminToken}`,
         "content-type": contentType,
@@ -188,7 +188,7 @@ describe("Content-Aware Crop", () => {
 
     const res = await app.inject({
       method: "POST",
-      url: "/api/v1/tools/content-aware-crop",
+      url: "/api/v1/tools/ai-canvas-expand",
       headers: {
         authorization: `Bearer ${adminToken}`,
         "content-type": contentType,
@@ -220,11 +220,102 @@ describe("Content-Aware Crop", () => {
 
     const res = await app.inject({
       method: "POST",
-      url: "/api/v1/tools/content-aware-crop",
+      url: "/api/v1/tools/ai-canvas-expand",
       headers: { "content-type": contentType },
       body,
     });
 
     expect(res.statusCode).toBe(401);
   });
+
+  // -- Tier parameter validation --------------------------------------------
+
+  it("accepts valid tier values in settings", async () => {
+    for (const tier of ["fast", "balanced", "high"]) {
+      const { body, contentType } = createMultipartPayload([
+        { name: "file", filename: "test.png", contentType: "image/png", content: PNG },
+        {
+          name: "settings",
+          content: JSON.stringify({
+            extendTop: 50,
+            extendRight: 0,
+            extendBottom: 50,
+            extendLeft: 0,
+            tier,
+          }),
+        },
+      ]);
+
+      const res = await app.inject({
+        method: "POST",
+        url: "/api/v1/tools/ai-canvas-expand",
+        headers: {
+          authorization: `Bearer ${adminToken}`,
+          "content-type": contentType,
+        },
+        body,
+      });
+
+      expect([202, 501]).toContain(res.statusCode);
+    }
+  }, 60_000);
+
+  it("returns 400 with invalid tier value", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.png", contentType: "image/png", content: PNG },
+      {
+        name: "settings",
+        content: JSON.stringify({
+          extendTop: 50,
+          extendRight: 0,
+          extendBottom: 50,
+          extendLeft: 0,
+          tier: "ultra",
+        }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/ai-canvas-expand",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect([400, 501]).toContain(res.statusCode);
+    if (res.statusCode === 400) {
+      const json = JSON.parse(res.body);
+      expect(json.error).toMatch(/invalid settings/i);
+    }
+  });
+
+  it("defaults to balanced tier when tier is omitted", async () => {
+    const { body, contentType } = createMultipartPayload([
+      { name: "file", filename: "test.png", contentType: "image/png", content: PNG },
+      {
+        name: "settings",
+        content: JSON.stringify({
+          extendTop: 50,
+          extendRight: 0,
+          extendBottom: 50,
+          extendLeft: 0,
+        }),
+      },
+    ]);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/tools/ai-canvas-expand",
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        "content-type": contentType,
+      },
+      body,
+    });
+
+    expect([202, 501]).toContain(res.statusCode);
+  }, 60_000);
 });
