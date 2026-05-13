@@ -14,43 +14,41 @@ async function uploadFile(page: import("@playwright/test").Page, filePath: strin
   await page.waitForTimeout(500);
 }
 
-test.describe("Content-Aware Crop", () => {
-  // ── Standalone /content-aware-crop route ────────────────────────────
-
-  test("standalone /content-aware-crop route loads", async ({ loggedInPage: page }) => {
-    await page.goto("/content-aware-crop");
+test.describe("AI Canvas Expand", () => {
+  test("standalone /ai-canvas-expand route loads", async ({ loggedInPage: page }) => {
+    await page.goto("/ai-canvas-expand");
 
     await expect(page.getByText("Tool not found")).not.toBeVisible();
-    await expect(page.getByText("Content-Aware Crop")).toBeVisible();
+    await expect(page.getByText("AI Canvas Expand")).toBeVisible();
     await expect(page.getByText("Extend to aspect ratio")).toBeVisible();
     await expect(page.getByText("Extend by (pixels)")).toBeVisible();
   });
 
   test("standalone submit disabled without file", async ({ loggedInPage: page }) => {
-    await page.goto("/content-aware-crop");
-    await expect(page.getByTestId("content-aware-crop-submit")).toBeDisabled();
+    await page.goto("/ai-canvas-expand");
+    await expect(page.getByTestId("ai-canvas-expand-submit")).toBeDisabled();
   });
 
   test("standalone submit disabled when all extensions are zero", async ({
     loggedInPage: page,
   }) => {
-    await page.goto("/content-aware-crop");
+    await page.goto("/ai-canvas-expand");
     await uploadFile(page, fixturePath("test-200x150.png"));
 
-    await expect(page.getByTestId("content-aware-crop-submit")).toBeDisabled();
+    await expect(page.getByTestId("ai-canvas-expand-submit")).toBeDisabled();
   });
 
   test("standalone submit enables with extension set", async ({ loggedInPage: page }) => {
-    await page.goto("/content-aware-crop");
+    await page.goto("/ai-canvas-expand");
     await uploadFile(page, fixturePath("test-200x150.png"));
 
     await page.locator("#cac-top").fill("50");
 
-    await expect(page.getByTestId("content-aware-crop-submit")).toBeEnabled();
+    await expect(page.getByTestId("ai-canvas-expand-submit")).toBeEnabled();
   });
 
   test("standalone aspect ratio preset fills extension values", async ({ loggedInPage: page }) => {
-    await page.goto("/content-aware-crop");
+    await page.goto("/ai-canvas-expand");
     await uploadFile(page, fixturePath("test-200x150.png"));
 
     await page.waitForTimeout(500);
@@ -63,11 +61,11 @@ test.describe("Content-Aware Crop", () => {
     const rightVal = Number(await rightInput.inputValue());
 
     expect(topVal > 0 || rightVal > 0).toBe(true);
-    await expect(page.getByTestId("content-aware-crop-submit")).toBeEnabled();
+    await expect(page.getByTestId("ai-canvas-expand-submit")).toBeEnabled();
   });
 
   test("standalone shows new size display", async ({ loggedInPage: page }) => {
-    await page.goto("/content-aware-crop");
+    await page.goto("/ai-canvas-expand");
     await uploadFile(page, fixturePath("test-200x150.png"));
 
     await page.waitForTimeout(500);
@@ -77,79 +75,40 @@ test.describe("Content-Aware Crop", () => {
     await expect(page.getByText(/New size: \d+ x \d+/)).toBeVisible();
   });
 
-  // ── Crop tool Content-Aware tab (/crop) ─────────────────────────────
+  test("tier buttons render with Balanced selected by default", async ({ loggedInPage: page }) => {
+    await page.goto("/ai-canvas-expand");
 
-  test("crop page shows Standard and Content-Aware tabs", async ({ loggedInPage: page }) => {
-    await page.goto("/crop");
-    await uploadFile(page, fixturePath("test-200x150.png"));
+    await expect(page.getByTestId("tier-fast")).toBeVisible();
+    await expect(page.getByTestId("tier-balanced")).toBeVisible();
+    await expect(page.getByTestId("tier-high")).toBeVisible();
 
-    await expect(page.getByRole("button", { name: "Standard" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Content-Aware" })).toBeVisible();
+    const balanced = page.getByTestId("tier-balanced");
+    await expect(balanced).toHaveClass(/bg-primary/);
   });
 
-  test("Content-Aware tab hides crop-specific controls", async ({ loggedInPage: page }) => {
-    await page.goto("/crop");
-    await uploadFile(page, fixturePath("test-200x150.png"));
+  test("clicking tier button changes selection", async ({ loggedInPage: page }) => {
+    await page.goto("/ai-canvas-expand");
 
-    await expect(page.getByText("Position & Size")).toBeVisible();
+    await page.getByTestId("tier-fast").click();
+    await expect(page.getByTestId("tier-fast")).toHaveClass(/bg-primary/);
+    await expect(page.getByTestId("tier-balanced")).not.toHaveClass(/bg-primary/);
 
-    await page.getByRole("button", { name: "Content-Aware" }).click();
-
-    await expect(page.getByText("Position & Size")).not.toBeVisible();
-    await expect(page.getByText("Extend to aspect ratio")).toBeVisible();
-    await expect(page.getByText("Extend by (pixels)")).toBeVisible();
+    await expect(page.getByText("Quick preview, fewer AI passes")).toBeVisible();
   });
 
-  test("switching back to Standard restores crop controls", async ({ loggedInPage: page }) => {
-    await page.goto("/crop");
-    await uploadFile(page, fixturePath("test-200x150.png"));
+  test("tier description updates on selection", async ({ loggedInPage: page }) => {
+    await page.goto("/ai-canvas-expand");
 
-    await page.getByRole("button", { name: "Content-Aware" }).click();
-    await expect(page.getByText("Extend to aspect ratio")).toBeVisible();
+    await expect(page.getByText("Good quality, moderate speed")).toBeVisible();
 
-    await page.getByRole("button", { name: "Standard" }).click();
-    await expect(page.getByText("Position & Size")).toBeVisible();
-    await expect(page.getByText("Extend to aspect ratio")).not.toBeVisible();
-  });
-
-  test("Content-Aware tab aspect ratio presets set extensions", async ({ loggedInPage: page }) => {
-    await page.goto("/crop");
-    await uploadFile(page, fixturePath("test-200x150.png"));
-
-    await page.getByRole("button", { name: "Content-Aware" }).click();
-    await page.waitForTimeout(300);
-
-    await page.getByRole("button", { name: "1:1" }).click();
-
-    const topInput = page.locator("#cac-crop-top").or(
-      page
-        .locator("input")
-        .filter({ has: page.locator("[id*='top']") })
-        .first(),
-    );
-    const extendInputs = page.locator("input[type='number']");
-    const values = await extendInputs.evaluateAll((els) =>
-      els.map((el) => Number((el as HTMLInputElement).value)),
-    );
-
-    const hasNonZero = values.some((v) => v > 0);
-    expect(hasNonZero).toBe(true);
-  });
-
-  test("Content-Aware submit button says Extend", async ({ loggedInPage: page }) => {
-    await page.goto("/crop");
-    await uploadFile(page, fixturePath("test-200x150.png"));
-
-    await page.getByRole("button", { name: "Content-Aware" }).click();
-
-    const submitBtn = page.getByTestId("crop-submit");
-    await expect(submitBtn).toHaveText(/Extend/);
+    await page.getByTestId("tier-high").click();
+    await expect(page.getByText("Best results, slower")).toBeVisible();
   });
 
   // ── Processing (requires AI sidecar) ────────────────────────────────
 
   test("processes image (AI sidecar required)", async ({ loggedInPage: page }) => {
-    await page.goto("/content-aware-crop");
+    await page.goto("/ai-canvas-expand");
 
     if (!(await isAiSidecarRunning(page))) {
       test.skip(true, "AI sidecar not running");
@@ -159,9 +118,9 @@ test.describe("Content-Aware Crop", () => {
     await page.locator("#cac-top").fill("30");
     await page.locator("#cac-bottom").fill("30");
 
-    await page.getByTestId("content-aware-crop-submit").click();
+    await page.getByTestId("ai-canvas-expand-submit").click();
 
-    const download = page.getByTestId("content-aware-crop-download");
+    const download = page.getByTestId("ai-canvas-expand-download");
     const error = page.getByText(/failed|not available|not installed|error/i);
 
     await expect(download.or(error)).toBeVisible({ timeout: 300_000 });
