@@ -81,6 +81,7 @@ export default defineConfig({
           { text: "Getting started", link: "/guide/getting-started" },
           { text: "Architecture", link: "/guide/architecture" },
           { text: "Configuration", link: "/guide/configuration" },
+          { text: "OIDC / SSO", link: "/guide/oidc" },
           { text: "Database", link: "/guide/database" },
           { text: "Deployment", link: "/guide/deployment" },
           { text: "Supported Formats", link: "/guide/supported-formats" },
