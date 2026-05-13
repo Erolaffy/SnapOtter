@@ -1,14 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { removeBackground } from "@snapotter/ai";
-import { getBundleForTool, TOOL_BUNDLE_MAP } from "@snapotter/shared";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import sharp from "sharp";
 import { z } from "zod";
 import { autoOrient } from "../../lib/auto-orient.js";
 import { formatZodErrors } from "../../lib/errors.js";
-import { isToolInstalled } from "../../lib/feature-status.js";
 import { validateImageBuffer } from "../../lib/file-validation.js";
 import { sanitizeFilename } from "../../lib/filename.js";
 import { decodeToSharpCompat, needsCliDecode } from "../../lib/format-decoders.js";
@@ -18,8 +15,11 @@ import { updateSingleFileProgress } from "../progress.js";
 import { registerToolProcessFn } from "../tool-factory.js";
 
 const TOOL_ID = "transparency-fixer";
-const DEFAULT_MODEL = "birefnet-hr-matting";
-const FALLBACK_MODEL = "birefnet-general";
+
+const CHROMA_OPAQUE = 35;
+const CHROMA_TRANSPARENT = 8;
+const GRAY_LOW = 120;
+const GRAY_HIGH = 230;
 
 const settingsSchema = z.object({
   defringe: z.number().min(0).max(100).optional().default(30),
@@ -27,13 +27,6 @@ const settingsSchema = z.object({
   removeWatermark: z.boolean().optional().default(false),
 });
 
-/**
- * Sharp-based defringe post-processing.
- *
- * Removes semi-transparent fringe pixels that rembg sometimes leaves around
- * hair, fur, and fine edges. Works by blurring the alpha channel and zeroing
- * out pixels whose alpha falls below a computed threshold.
- */
 async function applyDefringe(buffer: Buffer, intensity: number): Promise<Buffer> {
   if (intensity <= 0) return buffer;
 
@@ -44,13 +37,11 @@ async function applyDefringe(buffer: Buffer, intensity: number): Promise<Buffer>
   const { data, info } = await img.raw().toBuffer({ resolveWithObject: true });
   const pixelCount = info.width * info.height;
 
-  // Extract alpha channel
   const alpha = Buffer.alloc(pixelCount);
   for (let i = 0; i < pixelCount; i++) {
     alpha[i] = data[i * 4 + 3];
   }
 
-  // Blur the alpha channel
   const blurRadius = Math.max(0.3, Math.round(intensity / 20));
   const blurredAlphaRaw = await sharp(alpha, {
     raw: { width: info.width, height: info.height, channels: 1 },
@@ -59,7 +50,6 @@ async function applyDefringe(buffer: Buffer, intensity: number): Promise<Buffer>
     .raw()
     .toBuffer();
 
-  // Threshold: zero out fringe pixels
   const threshold = Math.round(128 + (intensity / 100) * 80);
   const result = Buffer.from(data);
   for (let i = 0; i < pixelCount; i++) {
@@ -78,54 +68,79 @@ async function applyDefringe(buffer: Buffer, intensity: number): Promise<Buffer>
     .toBuffer();
 }
 
-async function removeWatermarkMedian(buffer: Buffer): Promise<Buffer> {
-  return sharp(buffer).median(5).toBuffer();
+async function fixCheckerboardTransparency(buffer: Buffer): Promise<Buffer> {
+  const img = sharp(buffer).ensureAlpha();
+  const meta = await img.metadata();
+  if (!meta.width || !meta.height) return buffer;
+
+  const { width, height } = meta;
+  const rgba = await img.raw().toBuffer();
+  const flat = await sharp(buffer)
+    .flatten({ background: { r: 255, g: 255, b: 255 } })
+    .raw()
+    .toBuffer();
+
+  const pixelCount = width * height;
+  const result = Buffer.alloc(pixelCount * 4);
+
+  for (let i = 0; i < pixelCount; i++) {
+    const r = flat[i * 3];
+    const g = flat[i * 3 + 1];
+    const b = flat[i * 3 + 2];
+    const maxC = Math.max(r, g, b);
+    const minC = Math.min(r, g, b);
+    const chroma = maxC - minC;
+    const gray = (r + g + b) / 3;
+
+    let a: number;
+    if (chroma >= CHROMA_OPAQUE) {
+      a = 255;
+    } else if (chroma <= CHROMA_TRANSPARENT && gray > GRAY_LOW && gray < GRAY_HIGH) {
+      a = 0;
+    } else {
+      a = Math.round(
+        Math.min(
+          1,
+          Math.max(0, (chroma - CHROMA_TRANSPARENT) / (CHROMA_OPAQUE - CHROMA_TRANSPARENT)),
+        ) * 255,
+      );
+    }
+
+    result[i * 4] = rgba[i * 4];
+    result[i * 4 + 1] = rgba[i * 4 + 1];
+    result[i * 4 + 2] = rgba[i * 4 + 2];
+    result[i * 4 + 3] = a;
+  }
+
+  return sharp(result, { raw: { width, height, channels: 4 } })
+    .png()
+    .toBuffer();
 }
 
-/**
- * Run transparency fix: rembg matting -> defringe -> output format.
- */
 async function processTransparencyFix(
   inputBuffer: Buffer,
   settings: z.infer<typeof settingsSchema>,
-  outputDir: string,
+  _outputDir: string,
   onProgress?: (percent: number, stage: string) => void,
 ): Promise<Buffer> {
   let workingBuffer = inputBuffer;
 
   if (settings.removeWatermark) {
-    onProgress?.(2, "Removing watermark...");
-    workingBuffer = await removeWatermarkMedian(workingBuffer);
+    onProgress?.(5, "Removing watermark...");
+    workingBuffer = await sharp(workingBuffer).median(5).toBuffer();
   }
 
-  let resultBuffer: Buffer;
+  onProgress?.(20, "Detecting checkerboard...");
+  let resultBuffer = await fixCheckerboardTransparency(workingBuffer);
 
-  try {
-    resultBuffer = await removeBackground(
-      workingBuffer,
-      outputDir,
-      { model: DEFAULT_MODEL },
-      onProgress,
-    );
-  } catch (err) {
-    const isOom = err instanceof Error && err.message.includes("out of memory");
-    if (!isOom) throw err;
-
-    onProgress?.(5, `Retrying with fallback model (${FALLBACK_MODEL})`);
-    resultBuffer = await removeBackground(
-      workingBuffer,
-      outputDir,
-      { model: FALLBACK_MODEL },
-      onProgress,
-    );
-  }
-
+  onProgress?.(70, "Cleaning edges...");
   resultBuffer = await applyDefringe(resultBuffer, settings.defringe);
 
   if (settings.outputFormat === "webp") {
     resultBuffer = await sharp(resultBuffer).webp({ lossless: true }).toBuffer();
   }
 
+  onProgress?.(100, "Done");
   return resultBuffer;
 }
 
@@ -133,17 +148,6 @@ export function registerTransparencyFixer(app: FastifyInstance) {
   app.post(
     "/api/v1/tools/transparency-fixer",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      if (!isToolInstalled(TOOL_ID)) {
-        const bundle = getBundleForTool(TOOL_ID);
-        return reply.status(501).send({
-          error: "Feature not installed",
-          code: "FEATURE_NOT_INSTALLED",
-          feature: TOOL_BUNDLE_MAP[TOOL_ID],
-          featureName: bundle?.name ?? TOOL_ID,
-          estimatedSize: bundle?.estimatedSize ?? "unknown",
-        });
-      }
-
       let fileBuffer: Buffer | null = null;
       let filename = "image";
       let settingsRaw: string | null = null;
@@ -197,21 +201,18 @@ export function registerTransparencyFixer(app: FastifyInstance) {
       }
 
       try {
-        // Decode HEIC/HEIF before processing
         if (validation.format === "heif") {
           fileBuffer = await decodeHeic(fileBuffer);
           const ext = filename.match(/\.[^.]+$/)?.[0];
           if (ext) filename = `${filename.slice(0, -ext.length)}.png`;
         }
 
-        // Decode CLI-decoded formats (RAW, TGA, PSD, EXR, HDR)
         if (needsCliDecode(validation.format)) {
           fileBuffer = await decodeToSharpCompat(fileBuffer, validation.format);
           const ext = filename.match(/\.[^.]+$/)?.[0];
           if (ext) filename = `${filename.slice(0, -ext.length)}.png`;
         }
 
-        // Auto-orient to fix EXIF rotation
         fileBuffer = await autoOrient(fileBuffer);
       } catch (err) {
         request.log.error({ err, toolId: TOOL_ID }, "Input decoding failed");
@@ -238,14 +239,9 @@ export function registerTransparencyFixer(app: FastifyInstance) {
       }
 
       const log = request.log;
-      log.info(
-        { toolId: TOOL_ID, imageSize: originalSize, model: DEFAULT_MODEL },
-        "Starting transparency fix",
-      );
+      log.info({ toolId: TOOL_ID, imageSize: originalSize }, "Starting transparency fix");
 
-      // Reply immediately so the HTTP connection closes within proxy timeout limits.
-      // The result will be delivered via the SSE progress channel.
-      reply.status(202).send({ jobId: progressJobId, async: true });
+      const outputExt = settings.outputFormat === "webp" ? "webp" : "png";
 
       const onProgress = (percent: number, stage: string) => {
         updateSingleFileProgress({
@@ -256,9 +252,9 @@ export function registerTransparencyFixer(app: FastifyInstance) {
         });
       };
 
-      const outputExt = settings.outputFormat === "webp" ? "webp" : "png";
+      // Processing is fast (no AI model), but keep async pattern for consistency
+      reply.status(202).send({ jobId: progressJobId, async: true });
 
-      // Fire-and-forget: processing happens after the response is sent
       (async () => {
         const resultBuffer = await processTransparencyFix(
           fileBuffer,
@@ -298,7 +294,6 @@ export function registerTransparencyFixer(app: FastifyInstance) {
     },
   );
 
-  // Pipeline/batch registry
   registerToolProcessFn({
     toolId: TOOL_ID,
     settingsSchema,
