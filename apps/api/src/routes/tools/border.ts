@@ -146,7 +146,7 @@ export function registerBorder(app: FastifyInstance) {
       }
 
       const outputFormat = await resolveOutputFormat(inputBuffer, filename);
-      const ALPHA_FORMATS = new Set(["png", "webp", "avif", "tiff"]);
+      const ALPHA_FORMATS = new Set(["png", "webp", "avif"]);
       const needsAlpha = settings.cornerRadius > 0 || settings.shadow;
 
       if (needsAlpha && !ALPHA_FORMATS.has(outputFormat.format)) {

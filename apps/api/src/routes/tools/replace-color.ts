@@ -75,7 +75,7 @@ export function registerReplaceColor(app: FastifyInstance) {
       }
 
       const outputFormat = await resolveOutputFormat(inputBuffer, filename);
-      const ALPHA_FORMATS = new Set(["png", "webp", "avif", "tiff"]);
+      const ALPHA_FORMATS = new Set(["png", "webp", "avif"]);
       const needsAlpha = settings.makeTransparent;
       const useFormat =
         needsAlpha && !ALPHA_FORMATS.has(outputFormat.format)

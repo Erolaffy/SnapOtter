@@ -27,7 +27,7 @@ import { decompressSvgz, sanitizeSvg } from "../../lib/svg-sanitize.js";
 import { createWorkspace } from "../../lib/workspace.js";
 import { registerToolProcessFn } from "../tool-factory.js";
 
-const ALPHA_FORMATS = new Set(["png", "webp", "avif", "tiff"]);
+const ALPHA_FORMATS = new Set(["png", "webp", "avif"]);
 
 function escapeXml(text: string): string {
   return text
