@@ -1,3 +1,4 @@
+import path from "node:path";
 import { expect, test, uploadTestImage, waitForProcessing } from "./helpers";
 
 // ---------------------------------------------------------------------------
@@ -119,13 +120,23 @@ test.describe("GUI Layout Tools", () => {
       await expect(submitBtn).toBeVisible();
     });
 
-    test("submit disabled without file, enabled with file", async ({ loggedInPage: page }) => {
+    test("submit disabled without file, enabled with 2+ files", async ({ loggedInPage: page }) => {
       await page.goto("/stitch");
 
       const submitBtn = page.getByTestId("stitch-submit");
       await expect(submitBtn).toBeDisabled();
 
-      await uploadTestImage(page);
+      // Stitch requires 2+ images to enable submit
+      const fileChooserPromise = page.waitForEvent("filechooser");
+      await page.locator("[class*='border-dashed']").first().click();
+      const fileChooser = await fileChooserPromise;
+      const fixturePath = path.join(process.cwd(), "tests", "fixtures");
+      await fileChooser.setFiles([
+        path.join(fixturePath, "test-200x150.png"),
+        path.join(fixturePath, "test-100x100.jpg"),
+      ]);
+      await page.waitForTimeout(500);
+
       await expect(submitBtn).toBeEnabled();
     });
 

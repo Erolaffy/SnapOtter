@@ -117,7 +117,7 @@ AI tools require model bundles defined in `packages/shared/src/features.ts` (`FE
 
 ## Auth and Permissions
 
-Session-based auth with scrypt password hashing. Three built-in roles (`admin`, `editor`, `user`) with 16 granular permissions defined in `packages/shared/src/permissions.ts`. Custom roles stored in `roles` table. API keys (prefixed `si_`) carry optional scoped permissions that intersect with user role permissions. Auth can be disabled entirely (synthetic anonymous user with `user` role).
+Session-based auth with scrypt password hashing. Three built-in roles (`admin`, `editor`, `user`) with 14 granular permissions defined in `packages/shared/src/permissions.ts`. Custom roles stored in `roles` table. API keys (prefixed `si_`) carry optional scoped permissions that intersect with user role permissions. Auth can be disabled entirely (synthetic anonymous user with `user` role).
 
 ## Frontend State
 

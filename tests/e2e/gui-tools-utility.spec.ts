@@ -1,4 +1,7 @@
+import path from "node:path";
 import { expect, test, uploadTestImage, waitForProcessing } from "./helpers";
+
+const FIXTURE_PNG = path.join(process.cwd(), "tests", "fixtures", "test-200x150.png");
 
 // ---------------------------------------------------------------------------
 // GUI E2E: Utility Tools
@@ -118,11 +121,11 @@ test.describe("GUI Utility Tools", () => {
       await page.goto("/image-to-base64");
       await uploadTestImage(page);
 
-      await expect(page.getByRole("button", { name: "Keep Original" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "JPEG" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "PNG" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "WebP" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "AVIF" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Keep Original", exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: "JPEG", exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: "PNG", exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: "WebP", exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: "AVIF", exact: true })).toBeVisible();
     });
 
     test("quality slider appears for lossy formats", async ({ loggedInPage: page }) => {
@@ -133,7 +136,7 @@ test.describe("GUI Utility Tools", () => {
       await expect(page.locator("#b64-quality")).not.toBeVisible();
 
       // Switch to JPEG -- quality slider should appear
-      await page.getByRole("button", { name: "JPEG" }).click();
+      await page.getByRole("button", { name: "JPEG", exact: true }).click();
       await expect(page.locator("#b64-quality")).toBeVisible();
     });
 
@@ -157,7 +160,7 @@ test.describe("GUI Utility Tools", () => {
       await page.goto("/image-to-base64");
       await uploadTestImage(page);
 
-      await page.getByRole("button", { name: "PNG" }).click();
+      await page.getByRole("button", { name: "PNG", exact: true }).click();
       await expect(page.locator("#b64-quality")).not.toBeVisible();
     });
 
@@ -165,7 +168,7 @@ test.describe("GUI Utility Tools", () => {
       await page.goto("/image-to-base64");
       await uploadTestImage(page);
 
-      await page.getByRole("button", { name: "AVIF" }).click();
+      await page.getByRole("button", { name: "AVIF", exact: true }).click();
       await expect(page.locator("#b64-quality")).toBeVisible();
     });
   });
@@ -182,7 +185,12 @@ test.describe("GUI Utility Tools", () => {
 
     test("shows scan button after upload", async ({ loggedInPage: page }) => {
       await page.goto("/barcode-read");
-      await uploadTestImage(page);
+
+      const fileChooserPromise = page.waitForEvent("filechooser");
+      await page.locator("[class*='border-dashed']").first().click();
+      const fileChooser = await fileChooserPromise;
+      await fileChooser.setFiles(FIXTURE_PNG);
+      await page.waitForTimeout(500);
 
       await expect(page.getByTestId("barcode-read-submit")).toBeVisible();
     });

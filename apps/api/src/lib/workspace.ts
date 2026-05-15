@@ -11,13 +11,13 @@ import { env } from "../config.js";
 async function checkWorkspaceCapacity(workspaceRoot: string): Promise<void> {
   if (!existsSync(workspaceRoot)) return;
 
-  let stats;
+  let fsStats: Awaited<ReturnType<typeof statfs>>;
   try {
-    stats = await statfs(workspaceRoot);
+    fsStats = await statfs(workspaceRoot);
   } catch {
     return;
   }
-  const freeBytes = stats.bavail * stats.bsize;
+  const freeBytes = fsStats.bavail * fsStats.bsize;
   const freeGB = freeBytes / 1024 ** 3;
 
   if (freeGB < 1) {
@@ -39,13 +39,13 @@ async function checkWorkspaceCapacity(workspaceRoot: string): Promise<void> {
     }
 
     // Recheck after cleanup
-    let stats2;
+    let recheckStats: Awaited<ReturnType<typeof statfs>>;
     try {
-      stats2 = await statfs(workspaceRoot);
+      recheckStats = await statfs(workspaceRoot);
     } catch {
       return;
     }
-    const freeGB2 = (stats2.bavail * stats2.bsize) / 1024 ** 3;
+    const freeGB2 = (recheckStats.bavail * recheckStats.bsize) / 1024 ** 3;
     if (freeGB2 < 0.5) {
       const error = new Error("Insufficient disk space for processing");
       (error as Error & { statusCode: number }).statusCode = 503;

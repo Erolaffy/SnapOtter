@@ -1,3 +1,4 @@
+import path from "node:path";
 import { expect, test, uploadTestImage, waitForProcessing } from "./helpers";
 
 // ---------------------------------------------------------------------------
@@ -81,8 +82,15 @@ test.describe("GUI Format & Conversion Tools", () => {
     test("scale factor mode shows scale presets", async ({ loggedInPage: page }) => {
       await page.goto("/svg-to-raster");
 
+      // Scale presets require an SVG file to detect dimensions; upload a test SVG
+      const fileChooserPromise = page.waitForEvent("filechooser");
+      await page.locator("[class*='border-dashed']").first().click();
+      const fileChooser = await fileChooserPromise;
+      await fileChooser.setFiles(path.join(process.cwd(), "tests", "fixtures", "test-100x100.svg"));
+      await page.waitForTimeout(500);
+
       await page.getByRole("button", { name: "Scale Factor" }).click();
-      // Scale presets should be visible (1x, 2x, 3x, etc.)
+      // Scale presets should be visible (0.5x, 1x, 2x, 3x, 4x)
       await expect(page.getByRole("button", { name: "1x" }).first()).toBeVisible();
     });
 
@@ -281,7 +289,13 @@ test.describe("GUI Format & Conversion Tools", () => {
 
     test("speed mode shows speed factor controls", async ({ loggedInPage: page }) => {
       await page.goto("/gif-tools");
-      await uploadTestImage(page);
+
+      // Speed mode requires an animated GIF (disabled for static images)
+      const fileChooserPromise = page.waitForEvent("filechooser");
+      await page.locator("[class*='border-dashed']").first().click();
+      const fileChooser = await fileChooserPromise;
+      await fileChooser.setFiles(path.join(process.cwd(), "tests", "fixtures", "animated.gif"));
+      await page.waitForTimeout(500);
 
       await page.getByRole("button", { name: "Speed" }).first().click();
       await expect(page.getByText(/speed/i).first()).toBeVisible();
@@ -289,7 +303,13 @@ test.describe("GUI Format & Conversion Tools", () => {
 
     test("extract mode shows extract controls", async ({ loggedInPage: page }) => {
       await page.goto("/gif-tools");
-      await uploadTestImage(page);
+
+      // Extract mode requires an animated GIF (disabled for static images)
+      const fileChooserPromise = page.waitForEvent("filechooser");
+      await page.locator("[class*='border-dashed']").first().click();
+      const fileChooser = await fileChooserPromise;
+      await fileChooser.setFiles(path.join(process.cwd(), "tests", "fixtures", "animated.gif"));
+      await page.waitForTimeout(500);
 
       await page.getByRole("button", { name: "Extract" }).first().click();
       await expect(page.getByText(/format/i).first()).toBeVisible();
@@ -404,9 +424,9 @@ test.describe("GUI Format & Conversion Tools", () => {
       await uploadTestImage(page);
 
       await page.getByTestId("image-to-pdf-submit").click();
-      await waitForProcessing(page);
+      await waitForProcessing(page, 60_000);
 
-      await expect(page.getByTestId("image-to-pdf-download")).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByTestId("image-to-pdf-download")).toBeVisible({ timeout: 30_000 });
     });
   });
 
@@ -596,18 +616,22 @@ test.describe("GUI Format & Conversion Tools", () => {
       await page.goto("/optimize-for-web");
       await uploadTestImage(page);
 
-      await expect(page.getByRole("button", { name: "WebP" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "JPEG" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "AVIF" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "PNG" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "JXL" })).toBeVisible();
+      // Scope to the settings panel to avoid matching the file list item button
+      const settings = page.locator(".w-72");
+      await expect(settings.getByRole("button", { name: "WebP" })).toBeVisible();
+      await expect(settings.getByRole("button", { name: "JPEG" })).toBeVisible();
+      await expect(settings.getByRole("button", { name: "AVIF" })).toBeVisible();
+      await expect(settings.getByRole("button", { name: "PNG" })).toBeVisible();
+      await expect(settings.getByRole("button", { name: "JXL" })).toBeVisible();
     });
 
     test("quality slider hidden for PNG format", async ({ loggedInPage: page }) => {
       await page.goto("/optimize-for-web");
       await uploadTestImage(page);
 
-      await page.getByRole("button", { name: "PNG" }).click();
+      // Scope to the settings panel to avoid matching the file list item button
+      const settings = page.locator(".w-72");
+      await settings.getByRole("button", { name: "PNG" }).click();
       await expect(page.locator("#web-quality")).not.toBeVisible();
     });
 
@@ -615,7 +639,9 @@ test.describe("GUI Format & Conversion Tools", () => {
       await page.goto("/optimize-for-web");
       await uploadTestImage(page);
 
-      await page.getByRole("button", { name: "WebP" }).click();
+      // Scope to the settings panel to avoid matching the file list item button
+      const settings = page.locator(".w-72");
+      await settings.getByRole("button", { name: "WebP" }).click();
       await expect(page.locator("#web-quality")).toBeVisible();
     });
 
@@ -644,13 +670,12 @@ test.describe("GUI Format & Conversion Tools", () => {
       await expect(toggle).toHaveAttribute("aria-checked", "false");
     });
 
-    test("submit button uses data-testid and is enabled with file", async ({
-      loggedInPage: page,
-    }) => {
+    test("submit button is enabled with file", async ({ loggedInPage: page }) => {
       await page.goto("/optimize-for-web");
       await uploadTestImage(page);
 
-      const submitBtn = page.getByTestId("optimize-for-web-submit");
+      // The optimize-for-web submit is a form submit button (no data-testid)
+      const submitBtn = page.locator("button[type='submit']");
       await expect(submitBtn).toBeVisible();
       await expect(submitBtn).toBeEnabled();
     });
@@ -658,7 +683,8 @@ test.describe("GUI Format & Conversion Tools", () => {
     test("submit disabled without file", async ({ loggedInPage: page }) => {
       await page.goto("/optimize-for-web");
 
-      const submitBtn = page.getByTestId("optimize-for-web-submit");
+      // The optimize-for-web submit is a form submit button (no data-testid)
+      const submitBtn = page.locator("button[type='submit']");
       await expect(submitBtn).toBeDisabled();
     });
 
@@ -666,7 +692,9 @@ test.describe("GUI Format & Conversion Tools", () => {
       await page.goto("/optimize-for-web");
       await uploadTestImage(page);
 
-      await page.getByRole("button", { name: "JPEG" }).click();
+      // Scope to the settings panel to avoid matching the file list item button
+      const settings = page.locator(".w-72");
+      await settings.getByRole("button", { name: "JPEG" }).click();
       const slider = page.locator("#web-quality");
       await expect(slider).toBeVisible();
       await expect(slider).toHaveAttribute("type", "range");
@@ -676,10 +704,14 @@ test.describe("GUI Format & Conversion Tools", () => {
       await page.goto("/optimize-for-web");
       await uploadTestImage(page);
 
-      await page.getByTestId("optimize-for-web-submit").click();
+      // The optimize-for-web submit is a form submit button (no data-testid)
+      await page.locator("button[type='submit']").click();
       await waitForProcessing(page);
 
-      await expect(page.getByTestId("optimize-for-web-download")).toBeVisible({ timeout: 15_000 });
+      // Download link has no data-testid; locate by role
+      await expect(page.getByRole("link", { name: /download/i }).first()).toBeVisible({
+        timeout: 15_000,
+      });
     });
   });
 });

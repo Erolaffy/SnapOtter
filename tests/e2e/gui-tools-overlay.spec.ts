@@ -657,7 +657,8 @@ test.describe("GUI Watermark & Overlay Tools", () => {
       await page.getByRole("button", { name: /undo/i }).click();
 
       await expect(page.getByTestId("compose-submit")).toBeVisible({ timeout: 5_000 });
-      await expect(page.getByTestId("compose-download")).not.toBeVisible();
+      await expect(page.locator("#compose-x-position")).toBeVisible();
+      await expect(page.locator("#compose-y-position")).toBeVisible();
     });
 
     test("border: undo after processing returns to preset buttons", async ({

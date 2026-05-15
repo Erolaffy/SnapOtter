@@ -278,7 +278,7 @@ test.describe("Multi-file upload", () => {
     await page.waitForTimeout(1000);
 
     // The main viewer img should be visible
-    const mainImg = page.locator("section[aria-label='Image viewer'] img").first();
+    const mainImg = page.locator("section[aria-label='Image area'] img").first();
     await expect(mainImg).toBeVisible();
 
     // Verify an image is displayed in the viewer (first file is selected by default)

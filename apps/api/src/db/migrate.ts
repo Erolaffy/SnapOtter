@@ -1,7 +1,7 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import { db } from "./index.js";
+import { db, sqlite } from "./index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -24,6 +24,10 @@ let migrated = false;
 
 export function runMigrations() {
   if (migrated) return;
+  // Temporarily disable FK checks so table-recreation migrations
+  // (DROP + RENAME pattern) can proceed without constraint errors.
+  // Must be set outside any transaction to take effect in SQLite.
+  sqlite.pragma("foreign_keys = OFF");
   try {
     migrate(db, { migrationsFolder });
   } catch (err: unknown) {
@@ -37,6 +41,8 @@ export function runMigrations() {
     } else {
       throw err;
     }
+  } finally {
+    sqlite.pragma("foreign_keys = ON");
   }
   migrated = true;
 }

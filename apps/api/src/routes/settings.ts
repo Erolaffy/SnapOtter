@@ -17,16 +17,20 @@ const settingsBodySchema = z.record(z.string().min(1), z.unknown());
 
 const HTML_TAG_PATTERN = /<[a-z/!?][^>]*>/i;
 
+const SENSITIVE_KEYS = new Set(["cookie_secret", "instance_id"]);
+
 export async function settingsRoutes(app: FastifyInstance): Promise<void> {
   // GET /api/v1/settings — Get all settings as a key-value object
   app.get("/api/v1/settings", async (request: FastifyRequest, reply: FastifyReply) => {
     const user = requireAuth(request, reply);
     if (!user) return;
 
+    const isAdmin = user.role === "admin";
     const rows = db.select().from(schema.settings).all();
 
     const settings: Record<string, string> = {};
     for (const row of rows) {
+      if (!isAdmin && SENSITIVE_KEYS.has(row.key)) continue;
       settings[row.key] = row.value;
     }
 
@@ -93,6 +97,10 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
       if (!user) return;
 
       const { key } = request.params;
+
+      if (SENSITIVE_KEYS.has(key) && user.role !== "admin") {
+        return reply.status(403).send({ error: "Forbidden", code: "FORBIDDEN" });
+      }
 
       const row = db.select().from(schema.settings).where(eq(schema.settings.key, key)).get();
 

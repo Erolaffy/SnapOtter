@@ -13,23 +13,24 @@ import { decodeHeic } from "../../lib/heic-converter.js";
 import { decompressSvgz, sanitizeSvg } from "../../lib/svg-sanitize.js";
 import { createWorkspace } from "../../lib/workspace.js";
 
-async function decodeBuffer(buffer: Buffer, filename: string): Promise<Buffer> {
-  const validation = await validateImageBuffer(buffer, filename);
+async function decodeBuffer(inputBuffer: Buffer, filename: string): Promise<Buffer> {
+  const validation = await validateImageBuffer(inputBuffer, filename);
   if (!validation.valid) {
     throw new Error(`Invalid image: ${validation.reason}`);
   }
 
+  let decoded = inputBuffer;
   if (validation.format === "heif") {
-    buffer = await decodeHeic(buffer);
+    decoded = await decodeHeic(decoded);
   } else if (needsCliDecode(validation.format)) {
     const ext = filename.split(".").pop()?.toLowerCase();
-    buffer = await decodeToSharpCompat(buffer, validation.format, ext);
+    decoded = await decodeToSharpCompat(decoded, validation.format, ext);
   } else if (validation.format === "svg") {
-    buffer = decompressSvgz(buffer);
-    buffer = sanitizeSvg(buffer);
+    decoded = decompressSvgz(decoded);
+    decoded = sanitizeSvg(decoded);
   }
 
-  return autoOrient(buffer);
+  return autoOrient(decoded);
 }
 
 const settingsSchema = z.object({

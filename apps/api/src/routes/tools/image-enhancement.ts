@@ -34,13 +34,14 @@ const settingsSchema = z.object({
 type EnhancementSettings = z.infer<typeof settingsSchema>;
 
 async function processImageEnhancement(
-  inputBuffer: Buffer,
+  rawBuffer: Buffer,
   settings: EnhancementSettings,
   filename: string,
 ) {
-  const outputFormat = await resolveOutputFormat(inputBuffer, filename);
+  const outputFormat = await resolveOutputFormat(rawBuffer, filename);
 
   // HDR/EXR decodes can produce 16-bit buffers; CLAHE requires 8-bit (VIPS_FORMAT_UCHAR)
+  let inputBuffer = rawBuffer;
   const inputMeta = await sharp(inputBuffer).metadata();
   if (inputMeta.depth && inputMeta.depth !== "uchar") {
     inputBuffer = await sharp(inputBuffer).toColourspace("srgb").png().toBuffer();
