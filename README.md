@@ -82,6 +82,10 @@ We welcome bug reports, feature ideas, and pull requests. See [CONTRIBUTING.md](
 - [Submit a PR](CONTRIBUTING.md#code-requires-cla) (requires signing our CLA)
 - [Join Discord](https://discord.gg/hr3s7HPUsr) for help and discussion
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=snapotter-hq/SnapOtter&type=Date)](https://star-history.com/#snapotter-hq/SnapOtter&Date)
+
 ## License
 
 This project is dual-licensed under the [AGPLv3](LICENSE) and a commercial license.
