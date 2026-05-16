@@ -82,7 +82,20 @@ We welcome bug reports, feature ideas, and pull requests. See [CONTRIBUTING.md](
 - [Open an issue](https://github.com/snapotter-hq/snapotter/issues)
 - [Submit a PR](CONTRIBUTING.md#code-requires-cla)
 - [Join Discord](https://discord.gg/hr3s7HPUsr) for help and discussion
-- [Fund development](https://github.com/sponsors/snapotter-hq) to keep SnapOtter free for everyone
+- [Sponsor the project](https://github.com/sponsors/snapotter-hq) to keep SnapOtter free for everyone
+
+## Support SnapOtter
+
+SnapOtter is built and maintained independently with no venture capital or corporate backing. Sponsorships fund infrastructure, keep releases flowing, and ensure the project stays free and open for everyone.
+
+If SnapOtter saves you from paying for cloud image services, consider supporting its development:
+
+<a href="https://github.com/sponsors/snapotter-hq">
+  <img src="branding/sponsor-banner.svg" width="100%" alt="Sponsor SnapOtter on GitHub">
+</a>
+
+<!-- sponsors -->
+<!-- sponsors -->
 
 <p align="center">
   <a href="https://star-history.com/#snapotter-hq/SnapOtter&Date">
