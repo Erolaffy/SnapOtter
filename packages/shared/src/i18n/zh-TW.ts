@@ -1437,6 +1437,9 @@ export const zhTW: TranslationKeys = {
       resetPasswordAction: "重設密碼",
       deleteUserAction: "刪除使用者",
       saveButton: "儲存",
+      copyPasswordButton: "複製密碼",
+      passwordCopied: "已複製！",
+      copyPasswordWarning: "請立即複製此密碼。建立使用者後將無法再次查看。",
     },
     teams: {
       heading: "團隊",

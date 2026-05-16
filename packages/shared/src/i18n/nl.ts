@@ -1510,6 +1510,10 @@ export const nl: TranslationKeys = {
       resetPasswordAction: "Wachtwoord resetten",
       deleteUserAction: "Gebruiker verwijderen",
       saveButton: "Opslaan",
+      copyPasswordButton: "Wachtwoord kopieren",
+      passwordCopied: "Gekopieerd!",
+      copyPasswordWarning:
+        "Kopieer dit wachtwoord nu. U kunt het niet meer zien na het aanmaken van de gebruiker.",
     },
     teams: {
       heading: "Teams",

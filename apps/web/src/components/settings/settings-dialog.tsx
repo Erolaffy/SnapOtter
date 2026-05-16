@@ -751,6 +751,25 @@ function SecuritySection() {
 
 /* ────────────────────── People ────────────────────── */
 
+function generatePassword(): string {
+  const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const lower = "abcdefghijklmnopqrstuvwxyz";
+  const digits = "0123456789";
+  const all = upper + lower + digits;
+  const required = [
+    upper[Math.floor(Math.random() * upper.length)],
+    lower[Math.floor(Math.random() * lower.length)],
+    digits[Math.floor(Math.random() * digits.length)],
+  ];
+  const rest = Array.from({ length: 13 }, () => all[Math.floor(Math.random() * all.length)]);
+  const chars = [...required, ...rest];
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join("");
+}
+
 function PeopleSection() {
   const { t } = useTranslation();
   const [users, setUsers] = useState<UserEntry[]>([]);
@@ -764,6 +783,8 @@ function PeopleSection() {
   const [newTeam, setNewTeam] = useState("Default");
   const [addError, setAddError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [showGeneratedPw, setShowGeneratedPw] = useState(false);
+  const [pwCopied, setPwCopied] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<UserEntry | null>(null);
   const [editRole, setEditRole] = useState("");
@@ -836,6 +857,8 @@ function PeopleSection() {
         setNewRole("user");
         setNewTeam("Default");
         setShowAddForm(false);
+        setShowGeneratedPw(false);
+        setPwCopied(false);
         setActionMsg({ type: "success", text: t.settings.people.createSuccess });
         await loadUsers();
       } catch (err) {
@@ -1009,15 +1032,49 @@ function PeopleSection() {
               required
               className="px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground"
             />
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder={t.auth.password}
-              required
-              minLength={8}
-              className="px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground"
-            />
+            <div className="flex items-center gap-1.5">
+              <input
+                type={showGeneratedPw ? "text" : "password"}
+                value={newPassword}
+                onChange={(e) => {
+                  setNewPassword(e.target.value);
+                  setShowGeneratedPw(false);
+                  setPwCopied(false);
+                }}
+                placeholder={t.auth.password}
+                required
+                minLength={8}
+                className={cn(
+                  "flex-1 min-w-0 px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground",
+                  showGeneratedPw && "font-mono",
+                )}
+              />
+              {showGeneratedPw && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const ok = await copyToClipboard(newPassword);
+                    if (ok) {
+                      setPwCopied(true);
+                      setTimeout(() => setPwCopied(false), 2000);
+                    }
+                  }}
+                  className={cn(
+                    "shrink-0 p-2 rounded-lg border border-border transition-colors",
+                    pwCopied
+                      ? "text-green-500 bg-green-500/10"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  )}
+                  title={
+                    pwCopied
+                      ? t.settings.people.passwordCopied
+                      : t.settings.people.copyPasswordButton
+                  }
+                >
+                  {pwCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                </button>
+              )}
+            </div>
             <select
               value={newRole}
               onChange={(e) => setNewRole(e.target.value)}
@@ -1062,12 +1119,36 @@ function PeopleSection() {
             </button>
             <button
               type="button"
-              onClick={() => setShowAddForm(false)}
+              onClick={() => {
+                const pw = generatePassword();
+                setNewPassword(pw);
+                setShowGeneratedPw(true);
+                setPwCopied(false);
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-primary/30 bg-primary/10 text-xs text-primary hover:bg-primary/20 font-medium transition-colors"
+            >
+              <Sparkles className="h-3 w-3" />
+              {t.changePassword.generateButton}
+            </button>
+            <div className="flex-1" />
+            <button
+              type="button"
+              onClick={() => {
+                setShowAddForm(false);
+                setShowGeneratedPw(false);
+                setPwCopied(false);
+              }}
               className="px-4 py-2 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted transition-colors"
             >
               {t.common.cancel}
             </button>
           </div>
+          {showGeneratedPw && !pwCopied && (
+            <p className="text-xs text-amber-500 flex items-center gap-1.5">
+              <Key className="h-3.5 w-3.5 shrink-0" />
+              {t.settings.people.copyPasswordWarning}
+            </p>
+          )}
           {addError && <p className="text-sm text-destructive">{addError}</p>}
         </form>
       )}

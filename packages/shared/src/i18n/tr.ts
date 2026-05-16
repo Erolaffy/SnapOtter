@@ -1512,6 +1512,10 @@ export const tr: TranslationKeys = {
       resetPasswordAction: "Parolayı Sıfırla",
       deleteUserAction: "Kullanıcıyı Sil",
       saveButton: "Kaydet",
+      copyPasswordButton: "Sifreyi kopyala",
+      passwordCopied: "Kopyalandi!",
+      copyPasswordWarning:
+        "Bu sifreyi simdi kopyalayin. Kullaniciyi olusturduktan sonra goeremezsiniz.",
     },
     teams: {
       heading: "Takımlar",

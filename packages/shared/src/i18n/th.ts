@@ -1487,6 +1487,9 @@ export const th: TranslationKeys = {
       resetPasswordAction: "รีเซ็ตรหัสผ่าน",
       deleteUserAction: "ลบผู้ใช้",
       saveButton: "บันทึก",
+      copyPasswordButton: "คัดลอกรหัสผ่าน",
+      passwordCopied: "คัดลอกแล้ว!",
+      copyPasswordWarning: "คัดลอกรหัสผ่านนี้ตอนนี้ คุณจะไม่สามารถดูได้หลังจากสร้างผู้ใช้",
     },
     teams: {
       heading: "ทีม",

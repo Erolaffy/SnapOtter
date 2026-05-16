@@ -1508,6 +1508,10 @@ export const vi: TranslationKeys = {
       resetPasswordAction: "Đặt lại mật khẩu",
       deleteUserAction: "Xóa người dùng",
       saveButton: "Lưu",
+      copyPasswordButton: "Sao chep mat khau",
+      passwordCopied: "Da sao chep!",
+      copyPasswordWarning:
+        "Sao chep mat khau nay ngay bay gio. Ban se khong the xem lai sau khi tao nguoi dung.",
     },
     teams: {
       heading: "Nhóm",

@@ -1516,6 +1516,10 @@ export const de: TranslationKeys = {
       resetPasswordAction: "Passwort zuruecksetzen",
       deleteUserAction: "Benutzer loeschen",
       saveButton: "Speichern",
+      copyPasswordButton: "Passwort kopieren",
+      passwordCopied: "Kopiert!",
+      copyPasswordWarning:
+        "Kopieren Sie dieses Passwort jetzt. Nach dem Erstellen des Benutzers ist es nicht mehr sichtbar.",
     },
     teams: {
       heading: "Teams",

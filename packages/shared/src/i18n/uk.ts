@@ -1508,6 +1508,10 @@ export const uk: TranslationKeys = {
       resetPasswordAction: "Скинути пароль",
       deleteUserAction: "Видалити користувача",
       saveButton: "Зберегти",
+      copyPasswordButton: "Скопіювати пароль",
+      passwordCopied: "Скопійовано!",
+      copyPasswordWarning:
+        "Скопіюйте цей пароль зараз. Після створення користувача ви не зможете його побачити.",
     },
     teams: {
       heading: "Команди",

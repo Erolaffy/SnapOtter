@@ -1499,6 +1499,9 @@ export const ar: TranslationKeys = {
       resetPasswordAction: "إعادة تعيين كلمة المرور",
       deleteUserAction: "حذف المستخدم",
       saveButton: "حفظ",
+      copyPasswordButton: "نسخ كلمة المرور",
+      passwordCopied: "تم النسخ!",
+      copyPasswordWarning: "انسخ كلمة المرور الآن. لن تتمكن من رؤيتها بعد إنشاء المستخدم.",
     },
     teams: {
       heading: "الفرق",

@@ -1495,6 +1495,9 @@ export const hi: TranslationKeys = {
       resetPasswordAction: "पासवर्ड रीसेट करें",
       deleteUserAction: "उपयोगकर्ता हटाएं",
       saveButton: "सहेजें",
+      copyPasswordButton: "पासवर्ड कॉपी करें",
+      passwordCopied: "कॉपी हो गया!",
+      copyPasswordWarning: "इस पासवर्ड को अभी कॉपी करें। उपयोगकर्ता बनाने के बाद आप इसे नहीं देख पाएंगे।",
     },
     teams: {
       heading: "टीमें",

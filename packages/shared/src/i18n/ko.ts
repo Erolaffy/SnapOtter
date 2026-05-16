@@ -1450,6 +1450,9 @@ export const ko: TranslationKeys = {
       resetPasswordAction: "비밀번호 재설정",
       deleteUserAction: "사용자 삭제",
       saveButton: "저장",
+      copyPasswordButton: "비밀번호 복사",
+      passwordCopied: "복사됨!",
+      copyPasswordWarning: "지금 이 비밀번호를 복사하세요. 사용자 생성 후에는 확인할 수 없습니다.",
     },
     teams: {
       heading: "팀",

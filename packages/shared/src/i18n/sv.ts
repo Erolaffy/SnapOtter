@@ -1506,6 +1506,10 @@ export const sv: TranslationKeys = {
       resetPasswordAction: "Aterstall losenord",
       deleteUserAction: "Radera anvandare",
       saveButton: "Spara",
+      copyPasswordButton: "Kopiera losenord",
+      passwordCopied: "Kopierat!",
+      copyPasswordWarning:
+        "Kopiera detta losenord nu. Du kan inte se det efter att anvandaren har skapats.",
     },
     teams: {
       heading: "Team",

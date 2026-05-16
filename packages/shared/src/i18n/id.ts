@@ -1507,6 +1507,10 @@ export const id: TranslationKeys = {
       resetPasswordAction: "Reset Kata Sandi",
       deleteUserAction: "Hapus Pengguna",
       saveButton: "Simpan",
+      copyPasswordButton: "Salin kata sandi",
+      passwordCopied: "Disalin!",
+      copyPasswordWarning:
+        "Salin kata sandi ini sekarang. Anda tidak akan bisa melihatnya setelah membuat pengguna.",
     },
     teams: {
       heading: "Tim",

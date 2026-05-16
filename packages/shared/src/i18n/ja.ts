@@ -1465,6 +1465,10 @@ export const ja: TranslationKeys = {
       resetPasswordAction: "パスワードリセット",
       deleteUserAction: "ユーザー削除",
       saveButton: "保存",
+      copyPasswordButton: "パスワードをコピー",
+      passwordCopied: "コピーしました！",
+      copyPasswordWarning:
+        "今すぐこのパスワードをコピーしてください。ユーザー作成後は表示できません。",
     },
     teams: {
       heading: "チーム",

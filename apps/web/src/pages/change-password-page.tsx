@@ -1,3 +1,4 @@
+import { Sparkles } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "@/contexts/i18n-context";
 import { formatHeaders } from "@/lib/api";
@@ -164,8 +165,9 @@ export function ChangePasswordPage() {
                 <button
                   type="button"
                   onClick={handleGenerate}
-                  className="text-xs text-primary hover:text-primary/80 font-medium"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-primary/30 bg-primary/10 text-xs text-primary hover:bg-primary/20 font-medium transition-colors"
                 >
+                  <Sparkles className="h-3 w-3" />
                   {t.changePassword.generateButton}
                 </button>
               </div>

@@ -1509,6 +1509,9 @@ export const ptBR: TranslationKeys = {
       resetPasswordAction: "Redefinir senha",
       deleteUserAction: "Excluir usuario",
       saveButton: "Salvar",
+      copyPasswordButton: "Copiar senha",
+      passwordCopied: "Copiado!",
+      copyPasswordWarning: "Copie esta senha agora. Voce nao podera ve-la apos criar o usuario.",
     },
     teams: {
       heading: "Equipes",

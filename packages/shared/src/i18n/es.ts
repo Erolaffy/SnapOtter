@@ -1497,6 +1497,10 @@ export const es: TranslationKeys = {
       resetPasswordAction: "Restablecer contrasena",
       deleteUserAction: "Eliminar usuario",
       saveButton: "Guardar",
+      copyPasswordButton: "Copiar contrasena",
+      passwordCopied: "Copiado!",
+      copyPasswordWarning:
+        "Copia esta contrasena ahora. No podras verla despues de crear el usuario.",
     },
     teams: {
       heading: "Equipos",

@@ -1457,6 +1457,10 @@ export const en = {
       resetPasswordAction: "Reset Password",
       deleteUserAction: "Delete User",
       saveButton: "Save",
+      copyPasswordButton: "Copy password",
+      passwordCopied: "Copied!",
+      copyPasswordWarning:
+        "Copy this password now. You won't be able to see it after creating the user.",
     },
     teams: {
       heading: "Teams",
