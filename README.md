@@ -82,9 +82,24 @@ We welcome bug reports, feature ideas, and pull requests. See [CONTRIBUTING.md](
 - [Submit a PR](CONTRIBUTING.md#code-requires-cla) (requires signing our CLA)
 - [Join Discord](https://discord.gg/hr3s7HPUsr) for help and discussion
 
-## Star History
+## Show Your Support
 
-[![Star History Chart](https://api.star-history.com/svg?repos=snapotter-hq/SnapOtter&type=Date)](https://star-history.com/#snapotter-hq/SnapOtter&Date)
+<p align="center">
+  If SnapOtter saves you time, consider giving us a star.<br>
+  It helps others discover the project and keeps us motivated.
+</p>
+
+<p align="center">
+  <a href="https://github.com/snapotter-hq/SnapOtter/stargazers">
+    <img src="https://img.shields.io/github/stars/snapotter-hq/SnapOtter?style=for-the-badge&logo=github&color=yellow" alt="Star SnapOtter">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://star-history.com/#snapotter-hq/SnapOtter&Date">
+    <img src="https://api.star-history.com/svg?repos=snapotter-hq/SnapOtter&type=Date&theme=dark" alt="Star History Chart">
+  </a>
+</p>
 
 ## License
 
