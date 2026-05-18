@@ -125,7 +125,7 @@ def check_disk_space(path: str, min_bytes: int = 100 * 1024 * 1024) -> None:
 
 def pip_install(package: str, extra_flags: list[str] | None = None) -> None:
     """Run pip install for a single package spec. Raises on failure."""
-    cmd = [sys.executable, "-m", "pip", "install"]
+    cmd = [sys.executable, "-m", "pip", "install", "--no-cache-dir"]
     if extra_flags:
         cmd.extend(extra_flags)
 
@@ -471,7 +471,7 @@ def download_models(models: list[dict], models_dir: str) -> list[str]:
         except Exception as e:
             return (model_id, e)
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         futures = {
             pool.submit(_download, i, m): i
             for i, m in enumerate(models)

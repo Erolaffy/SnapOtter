@@ -225,13 +225,24 @@ export async function registerFeatureRoutes(app: FastifyInstance): Promise<void>
             }
           }
           if (!errorMsg) {
-            const meaningful = lastStderrLines.filter(
-              (l) => !l.startsWith("{") && !l.includes("pthread_setaffinity_np"),
-            );
-            errorMsg =
-              meaningful.join("\n") ||
-              stdoutBuffer.trim() ||
-              `Install failed with exit code ${code}`;
+            if (code === 137) {
+              errorMsg =
+                "Installation was killed due to insufficient memory. " +
+                "Try increasing the container's memory limit (e.g. mem_limit: 6g in docker-compose.yml) and retry.";
+            } else {
+              const meaningful = lastStderrLines.filter(
+                (l) =>
+                  !l.startsWith("{") &&
+                  !l.includes("pthread_setaffinity_np") &&
+                  !l.includes("\x1b[") &&
+                  !l.includes("━") &&
+                  !/^\s*\d+%\|/.test(l),
+              );
+              errorMsg =
+                meaningful.join("\n") ||
+                stdoutBuffer.trim() ||
+                `Install failed with exit code ${code}`;
+            }
           }
           setInstallProgress(bundleId, null, errorMsg);
           updateSingleFileProgress({ jobId, phase: "failed", percent: 0, error: errorMsg });
