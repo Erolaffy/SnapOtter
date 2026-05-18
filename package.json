@@ -1,6 +1,6 @@
 {
   "name": "snapotter",
-  "version": "1.17.0",
+  "version": "1.17.1",
   "private": true,
   "description": "Self-hosted image processing suite with 52 tools and local AI. Single Docker container, no external services.",
   "homepage": "https://snapotter.com",

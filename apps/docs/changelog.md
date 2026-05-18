@@ -4,6 +4,51 @@ description: Release notes and version history for SnapOtter. See what's new, im
 
 # Changelog
 
+## v1.17.1
+
+Live demo, per-tool landing pages, and a batch of polish fixes.
+
+### New features
+
+- **Live demo** -- [demo.snapotter.com](https://demo.snapotter.com) lets people try SnapOtter without installing anything.
+- **Tools index page** -- Browse all 52 tools at `/tools` with search and category filters.
+- **52 SEO landing pages** -- Every tool now has a dedicated landing page with FAQs, use cases, and comparison tables.
+- **Background preview** -- Before-after slider shows a checkered background behind transparent images.
+- **Strong password generator** -- One-click button in the Add Members form.
+
+### Bug fixes
+
+- HEIC/HEIF info tool no longer fails (pre-decode added).
+- AI model bundle install shows better error messages and respects resource limits.
+- Library thumbnails load correctly (auth headers were missing).
+- Dropdown menus no longer clip in People and Teams settings tables.
+- Size comparison percentage hidden on non-compression tools.
+- Duplicate privacy policy link removed.
+- Italian translation added for AI features settings.
+- Renamed Lucide icons updated (Wand2, Columns).
+
+### Infrastructure
+
+- OpenSSF Scorecard hardened from 4.3 to ~7.0.
+- CI tests parallelized into 4 shards with downsized fixtures.
+- 41 dependency updates.
+
+### Upgrade
+
+```bash
+docker pull snapotter/snapotter:1.17.1
+```
+
+Or with Docker Compose:
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+[Full diff on GitHub](https://github.com/snapotter-hq/SnapOtter/compare/v1.17.0...v1.17.1)
+
+---
+
 ## v1.17.0
 
 Five new tools, a full image editor, SSO login, 20 languages. Probably should have been three separate releases, but here we are.

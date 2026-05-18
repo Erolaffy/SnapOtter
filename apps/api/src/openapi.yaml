@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: SnapOtter API
-  version: 1.17.0
+  version: 1.17.1
   description: |
     REST API for SnapOtter, a self-hosted image processing platform with 52 tools.
 
