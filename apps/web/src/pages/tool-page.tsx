@@ -167,6 +167,7 @@ export function ToolPage() {
     return featureBundles.find((b) => b.id === bundleId) ?? null;
   }, [toolId, featureBundles]);
   const toolInstalled = featureBundle ? featureBundle.status === "installed" : !isAiTool;
+  const showSizeComparison = toolId === "compress" || toolId === "optimize-for-web";
   const { hasPermission } = useAuth();
   const isAdmin = hasPermission("settings:write");
 
@@ -525,8 +526,8 @@ export function ToolPage() {
         <BeforeAfterSlider
           beforeSrc={originalBlobUrl}
           afterSrc={displayUrl}
-          beforeSize={originalSize ?? undefined}
-          afterSize={processedSize ?? undefined}
+          beforeSize={showSizeComparison ? (originalSize ?? undefined) : undefined}
+          afterSize={showSizeComparison ? (processedSize ?? undefined) : undefined}
           initialPosition={eraserSliderInitPos ?? 50}
         />
       );
@@ -576,8 +577,8 @@ export function ToolPage() {
         <SideBySideComparison
           beforeSrc={originalBlobUrl}
           afterSrc={displayUrl}
-          beforeSize={originalSize ?? undefined}
-          afterSize={processedSize ?? undefined}
+          beforeSize={showSizeComparison ? (originalSize ?? undefined) : undefined}
+          afterSize={showSizeComparison ? (processedSize ?? undefined) : undefined}
         />
       );
     }
@@ -609,24 +610,13 @@ export function ToolPage() {
     }
 
     if (hasProcessed && originalBlobUrl) {
-      // When bg preview state is set (remove-background effects mode),
-      // show the ImageViewer with layered CSS preview instead of before/after slider
-      if (bgPreview) {
-        return (
-          <ImageViewer
-            src={displayUrl}
-            filename={processedFileName}
-            fileSize={processedSize ?? 0}
-            bgPreview={bgPreview}
-          />
-        );
-      }
       return (
         <BeforeAfterSlider
           beforeSrc={originalBlobUrl}
           afterSrc={displayUrl}
-          beforeSize={originalSize ?? undefined}
-          afterSize={processedSize ?? undefined}
+          beforeSize={showSizeComparison ? (originalSize ?? undefined) : undefined}
+          afterSize={showSizeComparison ? (processedSize ?? undefined) : undefined}
+          bgPreview={bgPreview}
         />
       );
     }
