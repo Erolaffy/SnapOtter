@@ -1,6 +1,6 @@
 import { type PointerEvent, useCallback, useEffect, useRef, useState } from "react";
+import type { BgPreviewState } from "@/components/common/image-viewer";
 import { useTranslation } from "@/contexts/i18n-context";
-import { format } from "@/lib/format";
 
 interface BeforeAfterSliderProps {
   /** URL or data URL of original image. */
@@ -13,6 +13,8 @@ interface BeforeAfterSliderProps {
   afterSize?: number;
   /** Initial divider position as a percentage (0–100). Defaults to 50. */
   initialPosition?: number;
+  /** Optional CSS preview layers for the "after" panel (remove-bg effects). */
+  bgPreview?: BgPreviewState | null;
 }
 
 function formatSize(bytes: number): string {
@@ -21,19 +23,21 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-/**
- * Before/After image comparison slider.
- *
- * Shows two images overlapping with a draggable vertical divider.
- * The "before" image is on the left, "after" on the right.
- * Supports mouse and touch interaction via pointer events.
- */
+const CHECKERBOARD_STYLE: React.CSSProperties = {
+  backgroundColor: "#ffffff",
+  backgroundImage:
+    "linear-gradient(45deg, #e0e0e0 25%, transparent 25%), linear-gradient(-45deg, #e0e0e0 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e0e0e0 75%), linear-gradient(-45deg, transparent 75%, #e0e0e0 75%)",
+  backgroundSize: "16px 16px",
+  backgroundPosition: "0 0, 0 8px, 8px -8px, -8px 0px",
+};
+
 export function BeforeAfterSlider({
   beforeSrc,
   afterSrc,
   beforeSize,
   afterSize,
   initialPosition = 50,
+  bgPreview,
 }: BeforeAfterSliderProps) {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -85,6 +89,33 @@ export function BeforeAfterSlider({
       ? ((1 - afterSize / beforeSize) * 100).toFixed(1)
       : null;
 
+  const hasBgLayers = bgPreview && (bgPreview.containerBackground || bgPreview.backgroundSrc);
+
+  const [contentBox, setContentBox] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+  } | null>(null);
+
+  const handleAfterImgLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    const cw = img.clientWidth;
+    const ch = img.clientHeight;
+    const nw = img.naturalWidth;
+    const nh = img.naturalHeight;
+    if (!nw || !nh) return;
+    const scale = Math.min(cw / nw, ch / nh);
+    const rw = nw * scale;
+    const rh = nh * scale;
+    setContentBox({
+      left: (cw - rw) / 2,
+      top: (ch - rh) / 2,
+      width: rw,
+      height: rh,
+    });
+  }, []);
+
   return (
     <div className="flex flex-col items-center gap-3 w-full max-w-2xl mx-auto h-full min-h-0">
       {/* Slider container */}
@@ -115,21 +146,44 @@ export function BeforeAfterSlider({
           draggable={false}
         />
 
-        {/* After image (clipped, top layer) */}
-        <div
-          className="absolute inset-0"
-          style={{
-            clipPath: `inset(0 0 0 ${position}%)`,
-            backgroundImage:
-              "linear-gradient(45deg, #e0e0e0 25%, transparent 25%), linear-gradient(-45deg, #e0e0e0 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e0e0e0 75%), linear-gradient(-45deg, transparent 75%, #e0e0e0 75%)",
-            backgroundSize: "16px 16px",
-            backgroundPosition: "0 0, 0 8px, 8px -8px, -8px 0px",
-          }}
-        >
+        {/* After panel (clipped, top layer) */}
+        <div className="absolute inset-0" style={{ clipPath: `inset(0 0 0 ${position}%)` }}>
+          {/* Background layers constrained to the image content area */}
+          {contentBox && (
+            <div
+              className="absolute overflow-hidden"
+              style={{
+                top: contentBox.top,
+                left: contentBox.left,
+                width: contentBox.width,
+                height: contentBox.height,
+                ...(hasBgLayers ? {} : CHECKERBOARD_STYLE),
+              }}
+            >
+              {bgPreview?.backgroundSrc ? (
+                <img
+                  src={bgPreview.backgroundSrc}
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-cover"
+                  style={{ filter: bgPreview.backgroundBlur || undefined }}
+                  draggable={false}
+                />
+              ) : bgPreview?.containerBackground ? (
+                <div
+                  className="absolute inset-0"
+                  style={{ background: bgPreview.containerBackground }}
+                />
+              ) : null}
+            </div>
+          )}
+
+          {/* Processed image */}
           <img
             src={afterSrc}
             alt="Processed"
-            className="w-full h-full object-contain"
+            className="relative w-full h-full object-contain"
+            style={{ filter: bgPreview?.dropShadow || undefined }}
+            onLoad={handleAfterImgLoad}
             draggable={false}
           />
         </div>
