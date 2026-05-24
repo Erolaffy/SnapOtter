@@ -1,0 +1,112 @@
+name: SnapOtter-dev
+
+# ================================================================
+# Development setup — reuses your EXISTING production image & data
+# volumes. No rebuild, no re-download of AI models.
+# ================================================================
+#
+# Prerequisites (you already have these):
+#   docker pull snapotter/snapotter:latest
+#   docker run ... snapotter/snapotter:latest   (creates snapotter-data volume)
+#
+# Quick start:
+#   1. Stop prod container (if running):
+#        docker stop SnapOtter
+#
+#   2. Start dev API:
+#        docker compose -f docker/dev/docker-compose.dev.yml up -d
+#
+#   3. Start web frontend on host (separate terminal):
+#        VITE_API_URL=http://localhost:1349 pnpm --filter @snapotter/web dev
+#
+#   4. Open http://localhost:1351
+#
+# When you edit TypeScript source in apps/api/ or packages/,
+# tsx watch auto-restarts the API inside the container (~2s).
+# Frontend changes (apps/web) are picked up by Vite HMR on the host.
+#
+# Back to production:
+#   docker stop SnapOtter-dev && docker start SnapOtter
+#
+# Rebuild (docker compose ... up --build) only needed when:
+#   - Adding/removing npm dependencies
+#   - Changing Python requirements
+# ================================================================
+
+services:
+  snapotter-dev:
+    image: snapotter/snapotter:latest
+    container_name: SnapOtter-dev
+    ports:
+      - "1349:1349"
+    volumes:
+      # Source mounts — edit on host, reflected in container instantly
+      - ../apps/api/src:/app/apps/api/src:ro
+      - ../apps/api/drizzle:/app/apps/api/drizzle:ro
+      - ../packages/shared/src:/app/packages/shared/src:ro
+      - ../packages/image-engine/src:/app/packages/image-engine/src:ro
+      - ../packages/ai/src:/app/packages/ai/src:ro
+      - ../packages/ai/python:/app/packages/ai/python:ro
+      # Reuse your existing data volume (AI venv, models, db, files)
+      - snapotter-data:/data
+      # Temp processing workspace (ephemeral, auto-cleaned)
+      - snapotter-dev-workspace:/tmp/workspace
+    environment:
+      - PORT=1349
+      - NODE_ENV=development
+      - AUTH_ENABLED=true
+      - DEFAULT_USERNAME=admin
+      - DEFAULT_PASSWORD=admin
+      - SKIP_MUST_CHANGE_PASSWORD=true
+      - STORAGE_MODE=local
+      - DB_PATH=/data/snapotter.db
+      - WORKSPACE_PATH=/tmp/workspace
+      - FILES_STORAGE_PATH=/data/files
+      - PYTHON_VENV_PATH=/data/ai/venv
+      - MODELS_PATH=/data/ai/models
+      - DATA_DIR=/data
+      - U2NET_HOME=/data/ai/models/rembg
+      - DEFAULT_THEME=light
+      - DEFAULT_LOCALE=en
+      - LOG_LEVEL=debug
+      - TRUST_PROXY=false
+      - FILE_MAX_AGE_HOURS=72
+      - CLEANUP_INTERVAL_MINUTES=60
+      - MAX_UPLOAD_SIZE_MB=0
+      - MAX_BATCH_SIZE=0
+      - CONCURRENT_JOBS=0
+      - MAX_MEGAPIXELS=0
+      - RATE_LIMIT_PER_MIN=0
+      - MAX_USERS=0
+      - SESSION_DURATION_HOURS=168
+    restart: unless-stopped
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+      - FOWNER
+    shm_size: "2gb"
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+    command:
+      [
+        "pnpm",
+        "--filter",
+        "@snapotter/api",
+        "exec",
+        "tsx",
+        "watch",
+        "src/index.ts",
+      ]
+    working_dir: /app/apps/api
+
+volumes:
+  snapotter-data:
+    external: true
+  snapotter-dev-workspace:

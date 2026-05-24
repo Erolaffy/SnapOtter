@@ -1,0 +1,113 @@
+name: SnapOtter-prod
+
+# ================================================================
+# Production deployment with source mounts.
+# Edit code on the server, then restart the container to apply.
+# ================================================================
+#
+# Usage:
+#   1. Build and start:
+#        docker compose -f docker/docker-compose.prod.yml up -d --build
+#
+#   2. After editing source code:
+#        docker compose -f docker/docker-compose.prod.yml restart
+#
+#   3. Frontend changes require rebuild:
+#        docker compose -f docker/docker-compose.prod.yml up -d --build
+#
+# GPU: docker compose -f docker/docker-compose-gpu.yml up -d
+# ================================================================
+
+services:
+  SnapOtter:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: snapotter:prod
+    container_name: SnapOtter-prod
+    ports:
+      # For internet-facing deployments, bind to localhost only:
+      # - "127.0.0.1:1349:1349"
+      - "1349:1349"
+    volumes:
+      # Persistent data
+      - SnapOtter-data:/data
+      - SnapOtter-workspace:/tmp/workspace
+      # Source mounts — edit on host, restart container to apply
+      - ../apps/api/src:/app/apps/api/src:ro
+      - ../apps/api/drizzle:/app/apps/api/drizzle:ro
+      - ../packages/shared/src:/app/packages/shared/src:ro
+      - ../packages/image-engine/src:/app/packages/image-engine/src:ro
+      - ../packages/ai/src:/app/packages/ai/src:ro
+      - ../packages/ai/python:/app/packages/ai/python:ro
+      # Frontend static files — rebuild on host first:
+      #   pnpm --filter @snapotter/web build
+      - ../apps/web/dist:/app/apps/web/dist:ro
+    environment:
+      - AUTH_ENABLED=true
+      - DEFAULT_USERNAME=admin
+      # Set a strong password. Default is 'admin' -- CHANGE THIS for any non-local deployment.
+      # - DEFAULT_PASSWORD=your-strong-password-here
+      - DEFAULT_PASSWORD=admin
+      - SKIP_MUST_CHANGE_PASSWORD=${SKIP_MUST_CHANGE_PASSWORD:-false}
+      - MAX_UPLOAD_SIZE_MB=${MAX_UPLOAD_SIZE_MB:-0}
+      - MAX_BATCH_SIZE=${MAX_BATCH_SIZE:-0}
+      - MAX_MEGAPIXELS=${MAX_MEGAPIXELS:-0}
+      - CONCURRENT_JOBS=${CONCURRENT_JOBS:-0}
+      - MAX_WORKER_THREADS=${MAX_WORKER_THREADS:-0}
+      - PROCESSING_TIMEOUT_S=${PROCESSING_TIMEOUT_S:-0}
+      - MAX_PIPELINE_STEPS=${MAX_PIPELINE_STEPS:-0}
+      - RATE_LIMIT_PER_MIN=${RATE_LIMIT_PER_MIN:-0}
+      - MAX_USERS=${MAX_USERS:-0}
+      - SESSION_DURATION_HOURS=${SESSION_DURATION_HOURS:-168}
+      - TRUST_PROXY=${TRUST_PROXY:-true}
+      # OIDC Authentication (optional)
+      # - EXTERNAL_URL=https://photos.example.com
+      # - OIDC_ENABLED=false
+      # - OIDC_ISSUER_URL=
+      # - OIDC_CLIENT_ID=
+      # - OIDC_CLIENT_SECRET=
+      # - OIDC_SCOPES=openid profile email
+      # - OIDC_AUTO_CREATE_USERS=true
+      # - OIDC_DEFAULT_ROLE=user
+      # - OIDC_AUTO_LINK_USERS=false
+      # - OIDC_PROVIDER_NAME=
+      # - OIDC_USERNAME_CLAIM=preferred_username
+      # - OIDC_CLOCK_TOLERANCE=30
+      # - COOKIE_SECRET=
+    restart: unless-stopped
+    # --- Security hardening ---
+    mem_limit: 6g
+    memswap_limit: 6g
+    cpus: 4
+    pids_limit: 512
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+      - FOWNER
+    # NOTE: security_opt: [no-new-privileges:true] is intentionally omitted.
+    # gosu requires setuid to drop from root to the snapotter user.
+    # Mitigation: cap_drop: ALL limits available capabilities after privilege drop.
+    # NOTE: read_only: true is not set because PUID/PGID remapping requires
+    # writing to /etc/passwd and /etc/group. Consider using Docker --user flag
+    # instead of PUID/PGID for read-only rootfs support.
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:1349/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+    shm_size: '2gb'
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+volumes:
+  SnapOtter-data:
+  SnapOtter-workspace:
